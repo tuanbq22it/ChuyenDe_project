@@ -24,9 +24,80 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
-  const handleApprove = () => {
-    if (window.confirm('Xác nhận đăng bài này lên Facebook?')) {
-      onApprove(post._id, formData);
+  const handleApprove = async () => {
+    if (!window.confirm('Xác nhận duyệt và đăng bài này lên Facebook?')) return;
+    
+    // Tạo postData object hoàn chỉnh với dữ liệu đã chỉnh sửa
+    const postData = {
+      ...post,
+      ...formData
+    };
+    
+    try {
+      // Nếu là bài viết tự tạo, trigger n8n workflow
+      if (post.source === 'MANUAL' || !post.source) {
+        await triggerN8NPublish(post._id, postData);
+      }
+      
+      // Gọi hàm approve trong component cha
+      onApprove(postData);
+    } catch (error) {
+      console.error('Error triggering n8n:', error);
+      alert('⚠️ Có lỗi khi kết nối với hệ thống tự động đăng. Bạn có muốn duyệt bài thủ công không?');
+      if (window.confirm('Tiếp tục duyệt bài thủ công?')) {
+        onApprove(postData);
+      }
+    }
+  };
+
+  // Hàm trigger n8n webhook
+  const triggerN8NPublish = async (postId, postData) => {
+    const N8N_WEBHOOK_URL = 'http://buiquoctuan.id.vn:5678/webhook/publish-post';
+    
+    // Payload khớp với workflow hiện có
+    const payload = {
+      draftId: postId,
+      source: 'admin_panel',
+      timestamp: new Date().toISOString(),
+      title: postData.title,
+      content: postData.content,
+      imageUrl: postData.imageUrl
+    };
+    
+    console.log('🚀 Triggering n8n workflow:', N8N_WEBHOOK_URL);
+    console.log('📦 Payload:', payload);
+    
+    // Trong demo mode, chỉ log và return success
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('🔄 [DEMO MODE] n8n webhook would be triggered');
+      alert('🔄 [Demo Mode] n8n webhook sẽ được gọi với URL: ' + N8N_WEBHOOK_URL);
+      return true;
+    }
+    
+    try {
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`N8N webhook failed: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.text();
+      console.log('✅ N8N workflow triggered successfully:', result);
+      
+      // Thông báo thành công
+      alert('✅ Đã gửi yêu cầu đăng bài đến n8n thành công! Hệ thống sẽ tự động đăng lên Facebook.');
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to trigger N8N workflow:', error);
+      throw error;
     }
   };
 
