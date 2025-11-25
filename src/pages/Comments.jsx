@@ -8,16 +8,103 @@ const Comments = () => {
   const [selectedComments, setSelectedComments] = useState([]);
   const [replyModal, setReplyModal] = useState({ show: false, comment: null });
   const [replyText, setReplyText] = useState('');
+  const [keywordModal, setKeywordModal] = useState({ show: false });
+  const [newKeyword, setNewKeyword] = useState('');
+  const [sensitiveKeywords, setSensitiveKeywords] = useState([
+    'spam', 'quảng cáo', 'bán hàng', 'mua ngay', 'giảm giá', 'khuyến mãi',
+    'link', 'website', 'click', 'tải về', 'download', 'hack', 'crack',
+    'fake', 'giả', 'lừa đảo', 'scam', 'virus', 'phishing',
+    'sex', 'porn', 'xxx', 'địt', 'đụ', 'chịch', 'fuck', 'shit',
+    'đĩ', 'cave', 'gái gọi', 'massage', 'happy ending',
+    'cờ bạc', 'casino', 'bet', 'cá cược', 'lô đề', 'xổ số'
+  ]);
 
   useEffect(() => {
     fetchComments();
   }, []);
 
+  // Hàm phát hiện từ khóa nhạy cảm
+  const detectSensitiveKeywords = (text) => {
+    if (!text) return { hasSensitive: false, detectedKeywords: [] };
+    
+    const normalizedText = text.toLowerCase().trim();
+    const detectedKeywords = [];
+    
+    sensitiveKeywords.forEach(keyword => {
+      if (normalizedText.includes(keyword.toLowerCase())) {
+        detectedKeywords.push(keyword);
+      }
+    });
+    
+    return {
+      hasSensitive: detectedKeywords.length > 0,
+      detectedKeywords
+    };
+  };
+
   const fetchComments = async () => {
     setLoading(true);
     try {
-      // Mock comments data
-      const mockComments = [
+      // Fetch real comments from Facebook API
+      const pageId = import.meta.env.VITE_FACEBOOK_PAGE_ID || '732045003335546';
+      const token = import.meta.env.VITE_FACEBOOK_PAGE_ACCESS_TOKEN || 'EAAfPYE7egL8BQMLijv4aipXXaImbD0gCo8ozQ7XPpI9VIBw87lkZBEakkB5xPxc8LokpqnCW1C2W6q2FLZAU9aZA7pQOB5vWezBZCAEMULiSbm5rGzaBszrvnyFpU5Rw8LUhP712NR50KZC9ILZCySPxZBFtI5dtZC2NzpqfxIoaXO0mAZB60JiMLBRiFoSKcNkCo8WVU';
+      
+      console.log('🔗 Đang tải bình luận từ Facebook...');
+
+      if (!token) {
+        throw new Error('Facebook Access Token không tìm thấy');
+      }
+
+      // Fetch posts first to get their comments
+      const postsResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${pageId}/posts?fields=id,message,created_time,comments{id,message,from,created_time,like_count}&limit=10&access_token=${token}`
+      );
+      
+      const postsData = await postsResponse.json();
+      
+      if (postsData.error) {
+        throw new Error(`API Error: ${postsData.error.message}`);
+      }
+
+      console.log('✅ Dữ liệu bài viết và bình luận:', postsData);
+
+      // Process comments from all posts
+      const allComments = [];
+      let commentIndex = 0;
+
+      postsData.data?.forEach(post => {
+        if (post.comments?.data) {
+          post.comments.data.forEach(comment => {
+            commentIndex++;
+            const keywordCheck = detectSensitiveKeywords(comment.message);
+            
+            allComments.push({
+              id: comment.id,
+              author: comment.from?.name || 'Người dùng Facebook',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.from?.name || 'FB User')}&background=1877f2&color=fff`,
+              content: comment.message || 'Bình luận không có nội dung',
+              postTitle: post.message ? post.message.substring(0, 60) + '...' : 'Bài viết không có tiêu đề',
+              status: keywordCheck.hasSensitive ? 'flagged' : 'clean',
+              createdAt: comment.created_time,
+              platform: 'facebook',
+              likes: comment.like_count || 0,
+              replies: [],
+              postId: post.id,
+              originalPost: post.message,
+              sensitiveKeywords: keywordCheck.detectedKeywords,
+              riskLevel: keywordCheck.detectedKeywords.length > 2 ? 'high' : keywordCheck.detectedKeywords.length > 0 ? 'medium' : 'low'
+            });
+          });
+        }
+      });
+
+      // Sort by creation time (newest first)
+      allComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      console.log('📝 Tổng số bình luận:', allComments.length);
+
+      // If no real comments, show some mock data as fallback
+      const mockComments = allComments.length > 0 ? allComments : [
         {
           id: '1',
           author: 'Nguyễn Văn An',
@@ -88,33 +175,74 @@ const Comments = () => {
       ];
       setComments(mockComments);
     } catch (error) {
+      console.error('💥 Lỗi tải bình luận:', error);
+      
+      // Fallback to mock data if API fails
+      const fallbackComments = [
+        {
+          id: 'fb_fallback_1',
+          author: 'Nguyễn Văn An',
+          avatar: 'https://ui-avatars.com/api/?name=Nguyen+Van+An&background=1877f2&color=fff',
+          content: 'Bài viết rất hay và bổ ích! Cảm ơn admin đã chia sẻ.',
+          postTitle: 'Dữ liệu mẫu - Không thể kết nối Facebook API',
+          status: 'approved',
+          createdAt: new Date().toISOString(),
+          platform: 'facebook',
+          likes: 5,
+          replies: []
+        }
+      ];
+      setComments(fallbackComments);
       console.error('Error fetching comments:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = (commentId) => {
+  const handleMarkSafe = (commentId) => {
     setComments(prev => prev.map(comment =>
-      comment.id === commentId ? { ...comment, status: 'approved' } : comment
+      comment.id === commentId ? { 
+        ...comment, 
+        status: 'clean',
+        riskLevel: 'low',
+        sensitiveKeywords: []
+      } : comment
     ));
-    alert('✅ Đã duyệt bình luận!');
+    alert('✅ Đã đánh dấu an toàn!');
   };
 
-  const handleReject = (commentId) => {
-    if (!confirm('⚠️ Bạn có chắc chắn muốn từ chối bình luận này?')) return;
-    setComments(prev => prev.map(comment =>
-      comment.id === commentId ? { ...comment, status: 'rejected' } : comment
-    ));
-    alert('✅ Đã từ chối bình luận!');
+  const handleAddKeyword = () => {
+    if (!newKeyword.trim()) {
+      alert('⚠️ Vui lòng nhập từ khóa!');
+      return;
+    }
+    
+    if (sensitiveKeywords.includes(newKeyword.toLowerCase().trim())) {
+      alert('⚠️ Từ khóa này đã tồn tại!');
+      return;
+    }
+    
+    setSensitiveKeywords(prev => [...prev, newKeyword.toLowerCase().trim()]);
+    setNewKeyword('');
+    alert('✅ Đã thêm từ khóa mới!');
   };
 
-  const handleMarkSpam = (commentId) => {
-    if (!confirm('⚠️ Đánh dấu bình luận này là spam?')) return;
-    setComments(prev => prev.map(comment =>
-      comment.id === commentId ? { ...comment, status: 'spam' } : comment
-    ));
-    alert('✅ Đã đánh dấu là spam!');
+  const handleRemoveKeyword = (keyword) => {
+    if (!confirm(`⚠️ Xóa từ khóa "${keyword}"?`)) return;
+    setSensitiveKeywords(prev => prev.filter(k => k !== keyword));
+    alert('✅ Đã xóa từ khóa!');
+    
+    // Re-check all comments
+    setComments(prev => prev.map(comment => {
+      const newCheck = detectSensitiveKeywords(comment.content);
+      return {
+        ...comment,
+        status: newCheck.hasSensitive ? 'flagged' : 'clean',
+        sensitiveKeywords: newCheck.detectedKeywords,
+        riskLevel: newCheck.detectedKeywords.length > 2 ? 'high' : 
+                   newCheck.detectedKeywords.length > 0 ? 'medium' : 'low'
+      };
+    }));
   };
 
   const handleDelete = (commentId) => {
@@ -212,15 +340,20 @@ const Comments = () => {
 
   const filteredComments = comments.filter(comment => {
     if (currentFilter === 'all') return true;
+    if (currentFilter === 'flagged') return comment.status === 'flagged';
+    if (currentFilter === 'clean') return comment.status === 'clean';
+    if (currentFilter === 'high-risk') return comment.riskLevel === 'high';
+    if (currentFilter === 'medium-risk') return comment.riskLevel === 'medium';
     return comment.status === currentFilter;
   });
 
   const stats = {
     total: comments.length,
-    approved: comments.filter(c => c.status === 'approved').length,
-    pending: comments.filter(c => c.status === 'pending').length,
-    rejected: comments.filter(c => c.status === 'rejected').length,
-    spam: comments.filter(c => c.status === 'spam').length
+    clean: comments.filter(c => c.status === 'clean').length,
+    flagged: comments.filter(c => c.status === 'flagged').length,
+    highRisk: comments.filter(c => c.riskLevel === 'high').length,
+    mediumRisk: comments.filter(c => c.riskLevel === 'medium').length,
+    keywords: sensitiveKeywords.length
   };
 
   return (
@@ -228,16 +361,30 @@ const Comments = () => {
       <Navbar />
       
       <div className="container-fluid px-3 px-md-4 py-4">
-        {/* Demo Mode Alert */}
-        <div className="alert alert-info border-0 shadow-sm mb-4" role="alert">
+        {/* Facebook Comments Stats */}
+        <div className="alert alert-primary border-0 shadow-sm mb-4" role="alert">
           <div className="d-flex align-items-center">
-            <i className="bi bi-chat-dots-fill me-2"></i>
+            <i className="bi bi-facebook me-2"></i>
             <div className="flex-grow-1">
-              <small className="fw-bold">Comments Management Demo</small>
+              <small className="fw-bold">🛡️ Bộ lọc từ khóa nhạy cảm Facebook</small>
               <div className="small text-muted">
-                Quản lý bình luận từ Facebook: Duyệt, từ chối, phản hồi và xử lý spam một cách hiệu quả.
+                Tổng số: <strong>{comments.length}</strong> • 
+                An toàn: <strong>{comments.filter(c => c.status === 'clean').length}</strong> • 
+                Cảnh báo: <strong>{comments.filter(c => c.status === 'flagged').length}</strong> • 
+                Từ khóa: <strong>{sensitiveKeywords.length}</strong>
               </div>
             </div>
+            <button 
+              className="btn btn-outline-primary btn-sm"
+              onClick={fetchComments}
+              disabled={loading}
+            >
+              {loading ? (
+                <><i className="spinner-border spinner-border-sm me-1"></i>Đang tải...</>
+              ) : (
+                <><i className="bi bi-arrow-clockwise me-1"></i>Làm mới</>
+              )}
+            </button>
           </div>
         </div>
 
@@ -247,24 +394,31 @@ const Comments = () => {
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
               <div className="flex-grow-1">
                 <h2 className="fw-bold mb-1 d-flex align-items-center">
-                  <i className="bi bi-chat-square-text text-primary me-2"></i>
-                  <span>Quản lý bình luận</span>
-                  <span className="badge bg-secondary ms-2 small">
-                    <i className="bi bi-wifi-off me-1"></i>
-                    Demo Mode
+                  <i className="bi bi-shield-exclamation text-primary me-2"></i>
+                  <span>Bộ lọc từ khóa nhạy cảm</span>
+                  <span className="badge bg-warning ms-2 small">
+                    <i className="bi bi-cpu me-1"></i>
+                    Tự động
                   </span>
                 </h2>
-                <p className="text-muted mb-0">Duyệt và phản hồi bình luận từ Facebook</p>
+                <p className="text-muted mb-0">Phát hiện và lọc bình luận có nội dung nhạy cảm trên Facebook</p>
               </div>
               <div className="d-flex gap-2 flex-wrap">
+                <button 
+                  className="btn btn-outline-primary btn-sm"
+                  onClick={() => setKeywordModal({ show: true })}
+                >
+                  <i className="bi bi-gear me-1"></i>
+                  Quản lý từ khóa ({sensitiveKeywords.length})
+                </button>
                 {selectedComments.length > 0 && (
                   <>
                     <button 
-                      className="btn btn-success btn-sm"
-                      onClick={() => handleBulkAction('approve')}
+                      className="btn btn-warning btn-sm"
+                      onClick={() => handleBulkAction('clean')}
                     >
                       <i className="bi bi-check-circle me-1"></i>
-                      Duyệt ({selectedComments.length})
+                      Đánh dấu an toàn ({selectedComments.length})
                     </button>
                     <button 
                       className="btn btn-danger btn-sm"
@@ -308,32 +462,32 @@ const Comments = () => {
           <div className="col-6 col-md-3 col-lg-2">
             <div className="card border-0 shadow-sm">
               <div className="card-body text-center py-3">
-                <h4 className="fw-bold text-success mb-1">{stats.approved}</h4>
-                <small className="text-muted">Đã duyệt</small>
+                <h4 className="fw-bold text-success mb-1">{stats.clean}</h4>
+                <small className="text-muted">An toàn</small>
               </div>
             </div>
           </div>
           <div className="col-6 col-md-3 col-lg-2">
             <div className="card border-0 shadow-sm">
               <div className="card-body text-center py-3">
-                <h4 className="fw-bold text-warning mb-1">{stats.pending}</h4>
-                <small className="text-muted">Chờ duyệt</small>
+                <h4 className="fw-bold text-warning mb-1">{stats.flagged}</h4>
+                <small className="text-muted">Cảnh báo</small>
               </div>
             </div>
           </div>
           <div className="col-6 col-md-3 col-lg-2">
             <div className="card border-0 shadow-sm">
               <div className="card-body text-center py-3">
-                <h4 className="fw-bold text-danger mb-1">{stats.rejected}</h4>
-                <small className="text-muted">Từ chối</small>
+                <h4 className="fw-bold text-danger mb-1">{stats.highRisk}</h4>
+                <small className="text-muted">Nguy cơ cao</small>
               </div>
             </div>
           </div>
           <div className="col-6 col-md-3 col-lg-2">
             <div className="card border-0 shadow-sm">
               <div className="card-body text-center py-3">
-                <h4 className="fw-bold text-dark mb-1">{stats.spam}</h4>
-                <small className="text-muted">Spam</small>
+                <h4 className="fw-bold text-info mb-1">{stats.keywords}</h4>
+                <small className="text-muted">Từ khóa</small>
               </div>
             </div>
           </div>
@@ -352,10 +506,10 @@ const Comments = () => {
           <div className="btn-group" role="group">
             {[
               { key: 'all', label: 'Tất cả', count: stats.total },
-              { key: 'pending', label: 'Chờ duyệt', count: stats.pending },
-              { key: 'approved', label: 'Đã duyệt', count: stats.approved },
-              { key: 'rejected', label: 'Từ chối', count: stats.rejected },
-              { key: 'spam', label: 'Spam', count: stats.spam }
+              { key: 'clean', label: 'An toàn', count: stats.clean },
+              { key: 'flagged', label: 'Cảnh báo', count: stats.flagged },
+              { key: 'high-risk', label: 'Nguy cơ cao', count: stats.highRisk },
+              { key: 'medium-risk', label: 'Nguy cơ vừa', count: stats.mediumRisk }
             ].map(filter => (
               <button
                 key={filter.key}
@@ -470,6 +624,21 @@ const Comments = () => {
                               </div>
                             )}
 
+                            {/* Sensitive Keywords Alert */}
+                            {comment.status === 'flagged' && comment.sensitiveKeywords && comment.sensitiveKeywords.length > 0 && (
+                              <div className={`alert ${comment.riskLevel === 'high' ? 'alert-danger' : 'alert-warning'} py-2 mb-2`}>
+                                <small>
+                                  <i className="bi bi-exclamation-triangle me-1"></i>
+                                  <strong>Phát hiện từ khóa nhạy cảm:</strong> 
+                                  {comment.sensitiveKeywords.map((keyword, idx) => (
+                                    <span key={idx} className={`badge ${comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'} ms-1`}>
+                                      {keyword}
+                                    </span>
+                                  ))}
+                                </small>
+                              </div>
+                            )}
+
                             <div className="d-flex align-items-center justify-content-between">
                               <div className="d-flex align-items-center gap-3">
                                 <small className="text-muted">
@@ -480,24 +649,31 @@ const Comments = () => {
                                   <i className="bi bi-chat me-1"></i>
                                   {comment.replies.length} phản hồi
                                 </small>
+                                <span className={`badge ${
+                                  comment.status === 'clean' ? 'bg-success' : 
+                                  comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'
+                                }`}>
+                                  {comment.status === 'clean' ? '✅ An toàn' : 
+                                   comment.riskLevel === 'high' ? '🚨 Nguy cơ cao' : '⚠️ Cảnh báo'}
+                                </span>
                               </div>
                               
                               <div className="btn-group btn-group-sm" role="group">
-                                {comment.status === 'pending' && (
+                                {comment.status === 'flagged' && (
                                   <>
                                     <button
                                       className="btn btn-outline-success"
-                                      onClick={() => handleApprove(comment.id)}
-                                      title="Duyệt"
+                                      onClick={() => handleMarkSafe(comment.id)}
+                                      title="Đánh dấu an toàn"
                                     >
-                                      <i className="bi bi-check"></i>
+                                      <i className="bi bi-shield-check"></i>
                                     </button>
                                     <button
                                       className="btn btn-outline-danger"
-                                      onClick={() => handleReject(comment.id)}
-                                      title="Từ chối"
+                                      onClick={() => handleDelete(comment.id)}
+                                      title="Xóa bình luận"
                                     >
-                                      <i className="bi bi-x"></i>
+                                      <i className="bi bi-trash"></i>
                                     </button>
                                   </>
                                 )}
@@ -592,6 +768,90 @@ const Comments = () => {
                     >
                       <i className="bi bi-send me-1"></i>
                       Gửi phản hồi
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-backdrop fade show"></div>
+          </>
+        )}
+
+        {/* Keyword Management Modal */}
+        {keywordModal.show && (
+          <>
+            <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+              <div className="modal-dialog modal-lg">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title fw-bold">
+                      <i className="bi bi-gear text-primary me-2"></i>
+                      Quản lý từ khóa nhạy cảm
+                    </h5>
+                    <button 
+                      type="button" 
+                      className="btn-close" 
+                      onClick={() => setKeywordModal({ show: false })}
+                    ></button>
+                  </div>
+                  <div className="modal-body">
+                    {/* Add New Keyword */}
+                    <div className="mb-4">
+                      <label className="form-label fw-bold">Thêm từ khóa mới:</label>
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={newKeyword}
+                          onChange={(e) => setNewKeyword(e.target.value)}
+                          placeholder="Nhập từ khóa nhạy cảm..."
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
+                        />
+                        <button 
+                          className="btn btn-primary"
+                          onClick={handleAddKeyword}
+                        >
+                          <i className="bi bi-plus me-1"></i>
+                          Thêm
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Keywords List */}
+                    <div>
+                      <label className="form-label fw-bold">
+                        Danh sách từ khóa ({sensitiveKeywords.length}):
+                      </label>
+                      <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        {sensitiveKeywords.map((keyword, index) => (
+                          <div key={index} className="d-flex align-items-center justify-content-between border-bottom py-2">
+                            <span className="badge bg-warning">{keyword}</span>
+                            <button
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={() => handleRemoveKeyword(keyword)}
+                            >
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="alert alert-info mt-3">
+                      <small>
+                        <i className="bi bi-info-circle me-1"></i>
+                        <strong>Thống kê:</strong> Có {stats.flagged} bình luận được phát hiện có từ khóa nhạy cảm
+                      </small>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button 
+                      type="button" 
+                      className="btn btn-light"
+                      onClick={() => setKeywordModal({ show: false })}
+                    >
+                      Đóng
                     </button>
                   </div>
                 </div>

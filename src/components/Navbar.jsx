@@ -37,11 +37,7 @@ const Navbar = () => {
                 <i className="bi bi-file-earmark-text me-1"></i> Bài viết
               </Link>
             </li>
-            <li className="nav-item">
-              <Link className={`nav-link ${location.pathname === '/categories' ? 'active' : ''}`} to="/categories">
-                <i className="bi bi-folder me-1"></i> Danh mục
-              </Link>
-            </li>
+
             <li className="nav-item">
               <Link className={`nav-link ${location.pathname === '/analytics' ? 'active' : ''}`} to="/analytics">
                 <i className="bi bi-bar-chart me-1"></i> Thống kê

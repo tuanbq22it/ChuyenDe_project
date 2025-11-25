@@ -4,18 +4,15 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Posts from './pages/Posts';
-import Categories from './pages/Categories';
-import Analytics from './pages/CleanAnalytics';
+import Analytics from './pages/RealAnalytics';
 import Settings from './pages/Settings';
 import Comments from './pages/Comments';
-import TestPage from './pages/TestPage';
 
 const App = () => {
   return (
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/test" element={<TestPage />} />
           <Route path="/login" element={<Login />} />
           <Route 
             path="/" 
@@ -33,14 +30,7 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/categories" 
-            element={
-              <ProtectedRoute>
-                <Categories />
-              </ProtectedRoute>
-            } 
-          />
+
           <Route path="/analytics" element={<Analytics />} />
           <Route 
             path="/settings" 
