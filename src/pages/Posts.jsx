@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import PostCard from '../components/PostCard';
 import EditModal from '../components/EditModal';
 import CreatePostModal from '../components/CreatePostModal';
+import { notifyPost, notifySuccess, notifyError } from '../utils/notifications';
 
 const Posts = () => {
   const { user } = useAuth();
@@ -130,23 +131,54 @@ const Posts = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('⚠️ Bạn có chắc chắn muốn xóa vĩnh viễn bài viết này không?')) return;
+    const postToDelete = posts.find(p => p._id === id);
+    
+    if (!confirm(`⚠️ Bạn có chắc chắn muốn xóa vĩnh viễn bài viết "${postToDelete?.title || 'này'}"?\n\n${postToDelete?.facebookPostId ? '🔴 Bài viết này đã đăng trên Facebook và sẽ bị xóa!' : '📝 Bài viết này chỉ có trong hệ thống.'}`)) return;
     
     try {
+      // 1. Xóa trên database
       const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
       
-      // Kiểm tra response
       if (res.ok) {
+        // 2. Nếu có facebookPostId, gọi n8n để xóa trên Facebook
+        if (postToDelete?.facebookPostId) {
+          try {
+            const n8nResponse = await fetch(import.meta.env.VITE_N8N_DELETE_WEBHOOK_URL || 'http://buiquoctuan.id.vn:5678/webhook/delete-post', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                postId: postToDelete.facebookPostId,
+                title: postToDelete.title,
+                deletedBy: user?.email || 'admin'
+              })
+            });
+            
+            const n8nResult = await n8nResponse.json();
+            
+            if (n8nResult.success) {
+              console.log('✅ Đã xóa trên Facebook:', n8nResult);
+              notifySuccess(`Đã xóa bài viết "${postToDelete.title}" khỏi Facebook`);
+            } else {
+              console.warn('⚠️ Không thể xóa trên Facebook:', n8nResult);
+              notifyError(`Đã xóa khỏi hệ thống nhưng chưa xóa được trên Facebook`);
+            }
+          } catch (n8nError) {
+            console.error('❌ Lỗi khi gọi n8n:', n8nError);
+            notifyError(`Đã xóa khỏi hệ thống nhưng không kết nối được n8n`);
+          }
+        } else {
+          notifySuccess(`Đã xóa bài viết "${postToDelete.title}"`);
+        }
+        
+        // 3. Xóa khỏi state
         setPosts(posts.filter(p => p._id !== id));
-        alert('✅ Đã xóa bài viết thành công!');
       } else {
         throw new Error('API không khả dụng');
       }
     } catch (error) {
       console.log('🔄 Xóa bài offline mode');
-      // Xóa trong chế độ offline
       setPosts(posts.filter(p => p._id !== id));
-      alert('✅ Đã xóa bài viết thành công (chế độ offline)!');
+      notifyError(`Không thể kết nối API khi xóa bài viết`);
     }
   };
 
@@ -186,7 +218,7 @@ const Posts = () => {
         setPosts(updatedPosts);
         setCurrentFilter('PUBLISHED');
         
-        alert('✅ Đã duyệt và lưu vào database thành công!\n🚀 n8n sẽ tự động đăng lên Facebook.');
+        notifyPost(postData.title);
       } else {
         throw new Error(result.message || 'Unknown API error');
       }
@@ -203,10 +235,7 @@ const Posts = () => {
       setPosts(updatedPosts);
       setCurrentFilter('PUBLISHED');
       
-      alert(`⚠️ Không thể kết nối API server!\n\n` +
-            `✅ Bài viết đã được duyệt local.\n` +
-            `🔄 Sẽ sync lên server khi có kết nối.\n\n` +
-            `Chi tiết lỗi: ${error.message}`);
+      notifyError(`Không thể duyệt bài: ${error.message}`);
     }
     
     setShowModal(false);
@@ -256,7 +285,7 @@ const Posts = () => {
       setCurrentFilter('DRAFT');
       
       // Thông báo thành công
-      alert('✅ Đã lưu bài viết vào database thành công!\n🔗 API: ' + API_BASE);
+      notifySuccess(`Đã tạo bài viết "${newPostPayload.title}"`);
       
     } catch (error) {
       console.error('❌ Failed to save to API:', error);
@@ -272,10 +301,7 @@ const Posts = () => {
       setCurrentFilter('DRAFT');
       
       // Thông báo fallback
-      alert(`⚠️ Không thể kết nối API server!\n\n` +
-            `📝 Bài viết đã được lưu tạm local.\n` +
-            `🔄 Sẽ sync lên server khi có kết nối.\n\n` +
-            `Chi tiết lỗi: ${error.message}`);
+      notifyError(`Không thể kết nối API: ${error.message}`);
     }
   };
 

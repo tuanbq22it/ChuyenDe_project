@@ -5,84 +5,33 @@ const NotificationSystem = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
-    // Mock notifications
-    const mockNotifications = [
-      {
-        id: '1',
-        type: 'comment',
-        title: 'Bình luận mới',
-        message: 'Nguyễn Văn An đã bình luận',
-        time: new Date(Date.now() - 300000).toISOString(),
-        read: false,
-        icon: 'bi-chat-dots',
-        color: 'primary'
-      },
-      {
-        id: '2',
-        type: 'post',
-        title: 'Bài viết mới được tạo',
-        message: 'Bài viết "Xu hướng công nghệ 2025" đã được thêm',
-        time: new Date(Date.now() - 1800000).toISOString(),
-        read: false,
-        icon: 'bi-file-earmark-plus',
-        color: 'success'
-      },
-      {
-        id: '3',
-        type: 'system',
-        title: 'Cập nhật hệ thống',
-        message: 'Hệ thống đã được cập nhật lên phiên bản mới',
-        time: new Date(Date.now() - 3600000).toISOString(),
-        read: true,
-        icon: 'bi-gear',
-        color: 'info'
-      },
-      {
-        id: '4',
-        type: 'warning',
-        title: 'Cảnh báo bảo mật',
-        message: 'Phát hiện hoạt động đăng nhập bất thường',
-        time: new Date(Date.now() - 7200000).toISOString(),
-        read: false,
-        icon: 'bi-shield-exclamation',
-        color: 'warning'
+    // Load notifications from localStorage
+    const loadNotifications = () => {
+      const saved = localStorage.getItem('notifications');
+      if (saved) {
+        setNotifications(JSON.parse(saved));
       }
-    ];
-    
-    setNotifications(mockNotifications);
+    };
 
-    // Simulate real-time notifications
-    const interval = setInterval(() => {
-      if (Math.random() > 0.7) { // 30% chance every 10 seconds
-        const newNotification = {
-          id: Date.now().toString(),
-          type: 'comment',
-          title: 'Thông báo mới',
-          message: 'Có hoạt động mới trên hệ thống',
-          time: new Date().toISOString(),
-          read: false,
-          icon: 'bi-bell',
-          color: 'primary'
-        };
-        
-        setNotifications(prev => [newNotification, ...prev.slice(0, 9)]); // Keep only 10 notifications
-        
-        // Show browser notification if permission granted
-        if (Notification.permission === 'granted') {
-          new Notification(newNotification.title, {
-            body: newNotification.message,
-            icon: '/favicon.ico'
-          });
-        }
+    loadNotifications();
+
+    // Listen for new notifications from localStorage events
+    const handleStorageChange = (e) => {
+      if (e.key === 'notifications') {
+        loadNotifications();
       }
-    }, 10000); // Every 10 seconds
+    };
+
+    window.addEventListener('storage', handleStorageChange);
 
     // Request notification permission
     if (Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -98,14 +47,24 @@ const NotificationSystem = () => {
   };
 
   const deleteNotification = (id) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+    const updated = notifications.filter(notification => notification.id !== id);
+    setNotifications(updated);
+    localStorage.setItem('notifications', JSON.stringify(updated));
   };
 
   const clearAllNotifications = () => {
     if (confirm('⚠️ Bạn có chắc chắn muốn xóa tất cả thông báo?')) {
       setNotifications([]);
+      localStorage.setItem('notifications', JSON.stringify([]));
     }
   };
+
+  // Save to localStorage whenever notifications change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      localStorage.setItem('notifications', JSON.stringify(notifications));
+    }
+  }, [notifications]);
 
   const getTimeAgo = (time) => {
     const diff = Date.now() - new Date(time).getTime();

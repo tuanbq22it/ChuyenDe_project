@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { notifySuccess } from '../utils/notifications';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -42,6 +43,7 @@ const Login = () => {
           role: 'admin'
         };
         login(userData);
+        notifySuccess('Đăng nhập thành công! Chào mừng Admin');
         navigate('/');
       } else {
         setError('Email hoặc mật khẩu không đúng');

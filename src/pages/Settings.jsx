@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
+import { notifySuccess } from '../utils/notifications';
 
 const Settings = () => {
   const { user, updateUser } = useAuth();
@@ -67,6 +68,7 @@ const Settings = () => {
         });
       }
       
+      notifySuccess('Cập nhật thông tin cá nhân thành công');
       alert('✅ Đã cập nhật thông tin cá nhân thành công!');
     } catch (error) {
       alert('❌ Có lỗi xảy ra khi cập nhật thông tin!');
@@ -77,16 +79,19 @@ const Settings = () => {
 
   const handleSaveNotifications = () => {
     localStorage.setItem('notifications', JSON.stringify(settings.notifications));
+    notifySuccess('Đã lưu cài đặt thông báo');
     alert('✅ Đã lưu cài đặt thông báo!');
   };
 
   const handleSaveAppearance = () => {
     localStorage.setItem('appearance', JSON.stringify(settings.appearance));
+    notifySuccess('Đã lưu cài đặt giao diện');
     alert('✅ Đã lưu cài đặt giao diện!');
   };
 
   const handleSaveSystem = () => {
     localStorage.setItem('systemSettings', JSON.stringify(settings.system));
+    notifySuccess('Đã lưu cài đặt hệ thống');
     alert('✅ Đã lưu cài đặt hệ thống!');
   };
 

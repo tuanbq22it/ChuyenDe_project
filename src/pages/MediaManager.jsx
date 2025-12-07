@@ -116,16 +116,12 @@ const MediaManager = () => {
   };
 
   const handleBulkDelete = () => {
-    if (selectedFiles.length === 0) {
-      alert('⚠️ Vui lòng chọn ít nhất một file để xóa!');
-      return;
-    }
+    if (selectedFiles.length === 0) return;
     
     if (!confirm(`⚠️ Bạn có chắc chắn muốn xóa ${selectedFiles.length} file đã chọn?`)) return;
     
-    setMedia(media.filter(m => !selectedFiles.includes(m.id)));
+    setMediaFiles(mediaFiles.filter(f => !selectedFiles.includes(f.id)));
     setSelectedFiles([]);
-    alert(`✅ Đã xóa ${selectedFiles.length} file thành công!`);
   };
 
   const toggleSelectFile = (id) => {

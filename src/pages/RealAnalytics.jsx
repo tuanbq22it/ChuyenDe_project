@@ -286,7 +286,7 @@ const Analytics = () => {
           <div className="col-12">
             <div className="card shadow mb-4">
               <div className="card-header py-3">
-                <h6 className="m-0 font-weight-bold text-primary">🏆 Bài viết hàng đầu</h6>
+                <h6 className="m-0 font-weight-bold text-primary">🏆 Bài viết hàng đầu (Dữ liệu thực từ Facebook)</h6>
               </div>
               <div className="card-body">
                 {topPosts.length > 0 ? topPosts.map((post, index) => {
@@ -334,7 +334,7 @@ const Analytics = () => {
 
         {/* Footer */}
         <div className="alert alert-info text-center">
-          ✨ <strong>Facebook Analytics Dashboard</strong> - Powered by Facebook Graph API v18.0
+          ✨ <strong>Facebook Analytics Dashboard</strong> - Dữ liệu thực từ Facebook Graph API v18.0
         </div>
       </div>
     </>

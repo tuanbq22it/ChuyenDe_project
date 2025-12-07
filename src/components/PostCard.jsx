@@ -85,13 +85,22 @@ const PostCard = ({ post, onEdit, onDelete }) => {
               </button>
             </div>
           ) : (
-            <button 
-              onClick={() => window.open(post.originalLink || '#', '_blank')}
-              className="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center"
-            >
-              <i className="bi bi-link-45deg me-1"></i> 
-              <span className="text-truncate">Xem link gốc</span>
-            </button>
+            <div className="d-flex gap-2">
+              <button 
+                onClick={() => window.open(post.originalLink || '#', '_blank')}
+                className="btn btn-outline-secondary btn-sm flex-grow-1 d-flex align-items-center justify-content-center"
+              >
+                <i className="bi bi-link-45deg me-1"></i> 
+                <span className="text-truncate">Xem link gốc</span>
+              </button>
+              <button 
+                className="btn btn-outline-danger btn-sm px-2" 
+                onClick={() => onDelete(post._id)}
+                title="Xóa bài đã đăng (cả trên Facebook)"
+              >
+                <i className="bi bi-trash"></i>
+              </button>
+            </div>
           )}
         </div>
       </div>
