@@ -153,29 +153,12 @@ const Settings = () => {
       <Navbar />
       
       <div className="container-fluid px-3 px-md-4 py-4">
-        {/* Demo Mode Alert */}
-        <div className="alert alert-primary border-0 shadow-sm mb-4" role="alert">
-          <div className="d-flex align-items-center">
-            <i className="bi bi-gear-fill me-2"></i>
-            <div className="flex-grow-1">
-              <small className="fw-bold">Settings Panel Demo</small>
-              <div className="small">
-                Cấu hình cài đặt hệ thống, thông tin cá nhân và các tùy chọn hiển thị.
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Page Header */}
         <div className="row mb-4">
           <div className="col-12">
             <h2 className="fw-bold mb-1 d-flex align-items-center">
               <i className="bi bi-sliders text-primary me-2"></i>
               <span>Cài đặt hệ thống</span>
-              <span className="badge bg-secondary ms-2 small">
-                <i className="bi bi-wifi-off me-1"></i>
-                Demo Mode
-              </span>
             </h2>
             <p className="text-muted mb-0">Quản lý cài đặt và tùy chọn cá nhân</p>
           </div>

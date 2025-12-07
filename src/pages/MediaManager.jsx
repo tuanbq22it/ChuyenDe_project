@@ -181,20 +181,7 @@ const MediaManager = () => {
       <Navbar />
       
       <div className="container-fluid px-3 px-md-4 py-4">
-        {/* Demo Mode Alert */}
-        <div className="alert alert-warning border-0 shadow-sm mb-4" role="alert">
-          <div className="d-flex align-items-center">
-            <i className="bi bi-images me-2"></i>
-            <div className="flex-grow-1">
-              <small className="fw-bold">Media Manager Demo</small>
-              <div className="small">
-                Quản lý hình ảnh và media files. Upload, preview, copy links và tổ chức files một cách hiệu quả.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Page Header */}
+        {/* Page Header */
         <div className="row mb-4">
           <div className="col-12">
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
@@ -202,10 +189,6 @@ const MediaManager = () => {
                 <h2 className="fw-bold mb-1 d-flex align-items-center">
                   <i className="bi bi-folder2-open text-primary me-2"></i>
                   <span>Media Manager</span>
-                  <span className="badge bg-secondary ms-2 small">
-                    <i className="bi bi-wifi-off me-1"></i>
-                    Demo Mode
-                  </span>
                 </h2>
                 <p className="text-muted mb-0">Quản lý hình ảnh và tài nguyên media</p>
               </div>

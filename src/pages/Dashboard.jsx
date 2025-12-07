@@ -78,43 +78,6 @@ const Dashboard = () => {
     } catch (error) {
       console.error('💥 Lỗi tải dữ liệu Facebook Dashboard:', error);
       setError(error.message);
-      
-      // Fallback to mock data
-        // Mock data nếu API không hoạt động
-        const mockPosts = [
-          {
-            _id: '1',
-            title: 'Ronaldo không có bàn thắng nào trong 4 trận gần nhất',
-            content: 'Cristiano Ronaldo đã trải qua 4 trận đấu liên tiếp...',
-            status: 'PUBLISHED',
-            createdAt: new Date('2025-11-20').toISOString(),
-            imageUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=100&h=100&fit=crop'
-          },
-          {
-            _id: '2',
-            title: 'Lý do nên thêm măng tây vào thực đơn hàng ngày',
-            content: 'Măng tây không chỉ ngon mà còn rất tốt cho sức khỏe...',
-            status: 'PUBLISHED', 
-            createdAt: new Date('2025-11-20').toISOString(),
-            imageUrl: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=100&h=100&fit=crop'
-          },
-          {
-            _id: '3',
-            title: 'Nhạc sĩ Nguyễn Văn Chung chia sẻ về âm nhạc',
-            status: 'PUBLISHED',
-            createdAt: new Date('2025-11-20').toISOString(),
-            imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=100&h=100&fit=crop'
-          },
-          {
-            _id: '4',
-            title: 'Bài viết chờ duyệt mẫu',
-            status: 'DRAFT',
-            createdAt: new Date().toISOString(),
-            imageUrl: 'https://via.placeholder.com/100x100?text=Draft'
-          }
-        ];
-      updateStats(mockPosts);
-      setRecentPosts(mockPosts.slice(0, 5));
     } finally {
       setLoading(false);
     }
@@ -200,17 +163,14 @@ const Dashboard = () => {
       <Navbar />
       
       <div className="container-fluid px-3 px-md-4 py-4">
-        {/* Facebook Integration Status */}
-        <div className={`alert ${error ? 'alert-warning' : 'alert-primary'} border-0 shadow-sm mb-4`} role="alert">
+        {/* Dashboard Header */}
+        <div className="alert alert-primary border-0 shadow-sm mb-4" role="alert">
           <div className="d-flex align-items-center">
-            <i className={`bi ${error ? 'bi-exclamation-triangle' : 'bi-facebook'} me-2`}></i>
+            <i className="bi bi-facebook me-2"></i>
             <div className="flex-grow-1">
-              <small className="fw-bold">
-                {error ? '⚠️ Dữ liệu mẫu' : '📊 Dashboard Facebook Analytics'}
-              </small>
+              <small className="fw-bold">📊 Dashboard Facebook Analytics</small>
               <div className="small">
-                {error ? `Lỗi kết nối Facebook API: ${error}` : 
-                 `Trang: ${pageInfo?.name || 'TT News'} • Followers: ${stats.followers} • Tổng tương tác: ${stats.engagement}`}
+                Trang: {pageInfo?.name || 'TT News'} • Followers: {stats.followers} • Tổng tương tác: {stats.engagement}
               </div>
             </div>
             <button 
@@ -234,10 +194,6 @@ const Dashboard = () => {
               <div>
                 <h2 className="fw-bold mb-1 d-flex align-items-center flex-wrap gap-2">
                   <span>📊 Dashboard Facebook Analytics</span>
-                  <span className={`badge ${error ? 'bg-warning' : 'bg-primary'} small`}>
-                    <i className={`bi ${error ? 'bi-exclamation-triangle' : 'bi-facebook'} me-1`}></i>
-                    {error ? 'Dữ liệu mẫu' : 'Dữ liệu thực'}
-                  </span>
                 </h2>
                 <p className="text-muted mb-0">
                   Trang: <strong>{pageInfo?.name || 'TT News'}</strong> • 

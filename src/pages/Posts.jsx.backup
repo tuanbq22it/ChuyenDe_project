@@ -56,52 +56,8 @@ const Posts = () => {
       setPosts(data);
       
     } catch (error) {
-      console.error('❌ Failed to fetch from API, using mock data:', error);
-      // Sử dụng mock data khi API không khả dụng
-        // Mock data nếu API không hoạt động
-        const mockPosts = [
-          {
-            _id: '1',
-            title: 'Ronaldo không có bàn thắng nào trong 4 trận gần nhất',
-            content: 'Cristiano Ronaldo đã trải qua 4 trận đấu liên tiếp mà không ghi được bàn thắng nào...',
-            status: 'PUBLISHED',
-            createdAt: new Date('2025-11-20').toISOString(),
-            imageUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=200&fit=crop'
-          },
-          {
-            _id: '2',
-            title: 'Lý do nên thêm măng tây vào thực đơn hàng ngày',
-            content: 'Măng tây không chỉ ngon mà còn rất tốt cho sức khỏe với nhiều vitamin và khoáng chất...',
-            status: 'PUBLISHED', 
-            createdAt: new Date('2025-11-20').toISOString(),
-            imageUrl: 'https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?w=400&h=200&fit=crop'
-          },
-          {
-            _id: '3',
-            title: 'Nhạc sĩ Nguyễn Văn Chung chia sẻ về âm nhạc',
-            content: 'Trong buổi phỏng vấn mới đây, nhạc sĩ Nguyễn Văn Chung đã chia sẻ nhiều điều thú vị...',
-            status: 'PUBLISHED',
-            createdAt: new Date('2025-11-20').toISOString(), 
-            imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=200&fit=crop'
-          },
-          {
-            _id: '4',
-            title: 'Vietjet vào top "Nơi làm việc tốt nhất châu Á"',
-            content: 'Hãng hàng không Vietjet đã được vinh danh trong danh sách những nơi làm việc tốt nhất...',
-            status: 'PUBLISHED',
-            createdAt: new Date('2025-11-20').toISOString(),
-            imageUrl: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=400&h=200&fit=crop'
-          },
-          {
-            _id: '5',
-            title: 'Bài viết chờ duyệt mẫu',
-            content: 'Đây là nội dung bài viết đang chờ được duyệt và đăng lên Facebook...',
-            status: 'DRAFT',
-            createdAt: new Date().toISOString(),
-            imageUrl: 'https://via.placeholder.com/400x200?text=Draft+Post'
-          }
-        ];
-        setPosts(mockPosts);
+      console.error('❌ Failed to fetch from API:', error);
+      setPosts([]);
     } finally {
       setLoading(false);
     }
@@ -284,7 +240,7 @@ const Posts = () => {
       <Navbar />
       
       <div className="container-fluid px-3 px-md-4 py-4">
-        {/* Page Header */}
+        {/* Page Header */
         <div className="row mb-4">
           <div className="col-12">
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">

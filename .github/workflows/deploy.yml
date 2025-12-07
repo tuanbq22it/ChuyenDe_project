@@ -1,0 +1,109 @@
+name: Deploy Admin Panel to VPS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Cho phép chạy thủ công
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+      
+      - name: 🚀 Deploy to VPS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            echo "🔄 Starting deployment..."
+            
+            # Di chuyển đến thư mục project
+            cd /var/www/html/AdminPanel || exit 1
+            
+            # Backup code cũ
+            echo "📦 Backing up current version..."
+            BACKUP_DIR="backups/backup_$(date +%Y%m%d_%H%M%S)"
+            mkdir -p backups
+            cp -r dist $BACKUP_DIR 2>/dev/null || echo "No dist to backup"
+            
+            # Pull code mới từ GitHub
+            echo "📥 Pulling latest code..."
+            git fetch origin
+            git reset --hard origin/main
+            
+            # Cài dependencies
+            echo "📦 Installing dependencies..."
+            npm install --production
+            
+            # Tạo file .env từ secrets
+            echo "🔐 Creating .env file..."
+            cat > .env << EOF
+            VITE_FACEBOOK_APP_ID=${{ secrets.VITE_FACEBOOK_APP_ID }}
+            VITE_FACEBOOK_PAGE_ACCESS_TOKEN=${{ secrets.VITE_FACEBOOK_PAGE_ACCESS_TOKEN }}
+            VITE_FACEBOOK_PAGE_ID=${{ secrets.VITE_FACEBOOK_PAGE_ID }}
+            VITE_ANALYTICS_MODE=production
+            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+            VITE_N8N_WEBHOOK_URL=${{ secrets.VITE_N8N_WEBHOOK_URL }}
+            EOF
+            
+            # Build project
+            echo "🔨 Building project..."
+            npm run build
+            
+            # Set permissions
+            echo "🔒 Setting permissions..."
+            sudo chown -R www-data:www-data dist/
+            sudo chmod -R 755 dist/
+            
+            # Reload Nginx
+            echo "🔄 Reloading Nginx..."
+            sudo systemctl reload nginx
+            
+            # Cleanup old backups (keep last 5)
+            echo "🧹 Cleaning old backups..."
+            cd backups && ls -t | tail -n +6 | xargs rm -rf
+            
+            echo "✅ Deployment completed successfully!"
+            echo "🌐 Site: https://buiquoctuan.id.vn"
+            echo "⏰ Time: $(date)"
+      
+      - name: 📱 Send success notification
+        if: success()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          message: |
+            ✅ *Deployment Success!*
+            
+            📦 *Repository:* `${{ github.repository }}`
+            🌿 *Branch:* `main`
+            👤 *By:* ${{ github.actor }}
+            💬 *Commit:* "${{ github.event.head_commit.message }}"
+            
+            🔗 [View Site](https://buiquoctuan.id.vn)
+            📊 [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+      
+      - name: 📱 Send failure notification
+        if: failure()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          message: |
+            ❌ *Deployment Failed!*
+            
+            📦 *Repository:* `${{ github.repository }}`
+            🌿 *Branch:* `main`
+            👤 *By:* ${{ github.actor }}
+            
+            📊 [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
