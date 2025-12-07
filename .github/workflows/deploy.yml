@@ -25,21 +25,21 @@ jobs:
             echo "🔄 Starting deployment..."
             
             # Kiểm tra và tạo thư mục nếu chưa có
-            if [ ! -d "/var/www/admin" ]; then
+            if [ ! -d "/var/www/html/AdminPanel" ]; then
               echo "📁 Creating directory..."
-              mkdir -p /var/www/admin
-              cd /var/www/admin
+              mkdir -p /var/www/html/AdminPanel
+              cd /var/www/html/AdminPanel
               git clone https://github.com/tuanbq22it/ChuyenDe_project.git .
             fi
             
             # Di chuyển đến thư mục project
-            cd /var/www/admin || exit 1
+            cd /var/www/html/AdminPanel || exit 1
             
             # Backup code cũ
             echo "📦 Backing up current version..."
             if [ -d "dist" ]; then
-              BACKUP_DIR="/var/backups/admin/backup_$(date +%Y%m%d_%H%M%S)"
-              mkdir -p /var/backups/admin
+              BACKUP_DIR="backups/backup_$(date +%Y%m%d_%H%M%S)"
+              mkdir -p backups
               cp -r dist $BACKUP_DIR
             fi
             
@@ -79,10 +79,11 @@ jobs:
             
             # Cleanup old backups (keep last 5)
             echo "🧹 Cleaning old backups..."
-            cd /var/backups/admin 2>/dev/null && ls -t | tail -n +6 | xargs rm -rf 2>/dev/null || true
+            cd backups 2>/dev/null && ls -t | tail -n +6 | xargs rm -rf 2>/dev/null || true
             
             echo "✅ Deployment completed successfully!"
             echo "🌐 Site: https://admin.buiquoctuan.id.vn"
+            echo "📁 Deployed to: /var/www/html/AdminPanel/dist"
             echo "⏰ Time: $(date)"
       
       # Telegram notifications (optional - uncomment and add secrets if needed)
