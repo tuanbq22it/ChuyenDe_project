@@ -48,11 +48,6 @@ const Navbar = () => {
                 <i className="bi bi-chat-square-text me-1"></i> Bình luận
               </Link>
             </li>
-            <li className="nav-item">
-              <Link className={`nav-link ${location.pathname === '/settings' ? 'active' : ''}`} to="/settings">
-                <i className="bi bi-gear me-1"></i> Cài đặt
-              </Link>
-            </li>
           </ul>          <div className="d-flex align-items-center gap-3">
             <span className="text-light small opacity-75">
               <i className="bi bi-globe me-1"></i> api.buiquoctuan.id.vn
@@ -76,11 +71,6 @@ const Navbar = () => {
                 <li>
                   <a className="dropdown-item" href="#">
                     <i className="bi bi-person-gear me-2"></i>Hồ sơ
-                  </a>
-                </li>
-                <li>
-                  <a className="dropdown-item" href="#">
-                    <i className="bi bi-gear me-2"></i>Cài đặt
                   </a>
                 </li>
                 <li><hr className="dropdown-divider" /></li>
