@@ -11,18 +11,18 @@ const NotificationSystem = () => {
         id: '1',
         type: 'comment',
         title: 'Bình luận mới',
-        message: 'Nguyễn Văn An đã bình luận về bài viết "Ronaldo không có bàn thắng"',
-        time: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+        message: 'Nguyễn Văn An đã bình luận',
+        time: new Date(Date.now() - 300000).toISOString(),
         read: false,
-        icon: 'bi-chat',
+        icon: 'bi-chat-dots',
         color: 'primary'
       },
       {
         id: '2',
         type: 'post',
         title: 'Bài viết mới được tạo',
-        message: 'Bài viết "Xu hướng công nghệ 2025" đã được thêm vào hệ thống',
-        time: new Date(Date.now() - 1800000).toISOString(), // 30 minutes ago
+        message: 'Bài viết "Xu hướng công nghệ 2025" đã được thêm',
+        time: new Date(Date.now() - 1800000).toISOString(),
         read: false,
         icon: 'bi-file-earmark-plus',
         color: 'success'
@@ -31,8 +31,8 @@ const NotificationSystem = () => {
         id: '3',
         type: 'system',
         title: 'Cập nhật hệ thống',
-        message: 'Hệ thống đã được cập nhật lên phiên bản mới với nhiều tính năng',
-        time: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+        message: 'Hệ thống đã được cập nhật lên phiên bản mới',
+        time: new Date(Date.now() - 3600000).toISOString(),
         read: true,
         icon: 'bi-gear',
         color: 'info'
@@ -41,8 +41,8 @@ const NotificationSystem = () => {
         id: '4',
         type: 'warning',
         title: 'Cảnh báo bảo mật',
-        message: 'Phát hiện một số hoạt động đăng nhập bất thường',
-        time: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+        message: 'Phát hiện hoạt động đăng nhập bất thường',
+        time: new Date(Date.now() - 7200000).toISOString(),
         read: false,
         icon: 'bi-shield-exclamation',
         color: 'warning'
@@ -179,39 +179,42 @@ const NotificationSystem = () => {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`list-group-item list-group-item-action ${!notification.read ? 'bg-light' : ''}`}
+                      className={`list-group-item list-group-item-action ${!notification.read ? 'border-start border-3 border-primary' : ''}`}
                       onClick={() => markAsRead(notification.id)}
                       style={{ cursor: 'pointer' }}
                     >
-                      <div className="d-flex align-items-start">
-                        <div className={`rounded-circle d-flex align-items-center justify-content-center me-3 bg-${notification.color} bg-opacity-10`} style={{ width: '40px', height: '40px', minWidth: '40px' }}>
-                          <i className={`${notification.icon} text-${notification.color}`}></i>
+                      <div className="d-flex align-items-start gap-2">
+                        <div className={`rounded-circle d-flex align-items-center justify-content-center bg-${notification.color} bg-opacity-10`} style={{ width: '36px', height: '36px', minWidth: '36px' }}>
+                          <i className={`${notification.icon} text-${notification.color} fs-6`}></i>
                         </div>
                         
-                        <div className="flex-grow-1 min-width-0">
-                          <div className="d-flex justify-content-between align-items-start">
-                            <h6 className="mb-1 fw-bold text-truncate">{notification.title}</h6>
-                            <div className="d-flex align-items-center">
-                              {!notification.read && (
-                                <span className="bg-primary rounded-circle me-2" style={{ width: '8px', height: '8px' }}></span>
-                              )}
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteNotification(notification.id);
-                                }}
-                                title="Xóa"
-                              >
-                                <i className="bi bi-x"></i>
-                              </button>
-                            </div>
+                        <div className="flex-grow-1 overflow-hidden">
+                          <div className="d-flex justify-content-between align-items-start mb-1">
+                            <h6 className="mb-0 fw-semibold small">{notification.title}</h6>
+                            <button
+                              className="btn btn-sm p-0 text-muted"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notification.id);
+                              }}
+                              title="Xóa"
+                              style={{ marginLeft: '8px' }}
+                            >
+                              <i className="bi bi-x-lg"></i>
+                            </button>
                           </div>
-                          <p className="mb-1 text-muted small">{notification.message}</p>
-                          <small className="text-muted">
-                            <i className="bi bi-clock me-1"></i>
-                            {getTimeAgo(notification.time)}
-                          </small>
+                          <p className="mb-1 text-muted small text-truncate" style={{ maxWidth: '300px' }}>
+                            {notification.message}
+                          </p>
+                          <div className="d-flex align-items-center gap-2">
+                            <small className="text-muted">
+                              <i className="bi bi-clock me-1"></i>
+                              {getTimeAgo(notification.time)}
+                            </small>
+                            {!notification.read && (
+                              <span className="badge bg-primary rounded-pill" style={{ fontSize: '0.65rem' }}>Mới</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
