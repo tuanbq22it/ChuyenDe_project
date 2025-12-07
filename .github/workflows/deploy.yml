@@ -74,36 +74,13 @@ jobs:
             echo "🌐 Site: https://buiquoctuan.id.vn"
             echo "⏰ Time: $(date)"
       
-      - name: 📱 Send success notification
-        if: success()
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            ✅ *Deployment Success!*
-            
-            📦 *Repository:* `${{ github.repository }}`
-            🌿 *Branch:* `main`
-            👤 *By:* ${{ github.actor }}
-            💬 *Commit:* "${{ github.event.head_commit.message }}"
-            
-            🔗 [View Site](https://buiquoctuan.id.vn)
-            📊 [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-      
-      - name: 📱 Send failure notification
-        if: failure()
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            ❌ *Deployment Failed!*
-            
-            📦 *Repository:* `${{ github.repository }}`
-            🌿 *Branch:* `main`
-            👤 *By:* ${{ github.actor }}
-            
-            📊 [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+      # Telegram notifications (optional - uncomment and add secrets if needed)
+      # - name: 📱 Send success notification
+      #   if: success()
+      #   uses: appleboy/telegram-action@master
+      #   with:
+      #     to: ${{ secrets.TELEGRAM_CHAT_ID }}
+      #     token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      #     format: markdown
+      #     message: |
+      #       ✅ Deployment Success! 🌐 https://admin.buiquoctuan.id.vn
