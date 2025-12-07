@@ -66,16 +66,25 @@ jobs:
             
             # Build project
             echo "🔨 Building project..."
-            npm run build
+            npm run build || { echo "❌ Build failed!"; exit 1; }
+            
+            # Verify dist exists
+            if [ ! -d "dist" ]; then
+              echo "❌ dist folder not found after build!"
+              exit 1
+            fi
             
             # Set permissions
             echo "🔒 Setting permissions..."
             chown -R www-data:www-data dist/
             chmod -R 755 dist/
             
-            # Reload Nginx
+            # Clear nginx cache and reload
             echo "🔄 Reloading Nginx..."
+            rm -rf /var/cache/nginx/* 2>/dev/null || true
             systemctl reload nginx
+            
+            echo "✅ Nginx reloaded successfully"
             
             # Cleanup old backups (keep last 5)
             echo "🧹 Cleaning old backups..."
