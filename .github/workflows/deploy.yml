@@ -18,20 +18,30 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
-          username: deployer
+          username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script: |
             echo "🔄 Starting deployment..."
             
+            # Kiểm tra và tạo thư mục nếu chưa có
+            if [ ! -d "/var/www/admin" ]; then
+              echo "📁 Creating directory..."
+              mkdir -p /var/www/admin
+              cd /var/www/admin
+              git clone https://github.com/tuanbq22it/ChuyenDe_project.git .
+            fi
+            
             # Di chuyển đến thư mục project
-            cd /var/www/html/AdminPanel || exit 1
+            cd /var/www/admin || exit 1
             
             # Backup code cũ
             echo "📦 Backing up current version..."
-            BACKUP_DIR="backups/backup_$(date +%Y%m%d_%H%M%S)"
-            mkdir -p backups
-            cp -r dist $BACKUP_DIR 2>/dev/null || echo "No dist to backup"
+            if [ -d "dist" ]; then
+              BACKUP_DIR="/var/backups/admin/backup_$(date +%Y%m%d_%H%M%S)"
+              mkdir -p /var/backups/admin
+              cp -r dist $BACKUP_DIR
+            fi
             
             # Pull code mới từ GitHub
             echo "📥 Pulling latest code..."
@@ -40,18 +50,19 @@ jobs:
             
             # Cài dependencies
             echo "📦 Installing dependencies..."
-            npm install --production
+            npm install
             
             # Tạo file .env từ secrets
             echo "🔐 Creating .env file..."
-            cat > .env << EOF
+            cat > .env << 'ENVEOF'
             VITE_FACEBOOK_APP_ID=${{ secrets.VITE_FACEBOOK_APP_ID }}
             VITE_FACEBOOK_PAGE_ACCESS_TOKEN=${{ secrets.VITE_FACEBOOK_PAGE_ACCESS_TOKEN }}
             VITE_FACEBOOK_PAGE_ID=${{ secrets.VITE_FACEBOOK_PAGE_ID }}
             VITE_ANALYTICS_MODE=production
             VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
             VITE_N8N_WEBHOOK_URL=${{ secrets.VITE_N8N_WEBHOOK_URL }}
-            EOF
+            VITE_N8N_DELETE_WEBHOOK_URL=${{ secrets.VITE_N8N_DELETE_WEBHOOK_URL }}
+            ENVEOF
             
             # Build project
             echo "🔨 Building project..."
@@ -59,19 +70,19 @@ jobs:
             
             # Set permissions
             echo "🔒 Setting permissions..."
-            sudo chown -R www-data:www-data dist/
-            sudo chmod -R 755 dist/
+            chown -R www-data:www-data dist/
+            chmod -R 755 dist/
             
             # Reload Nginx
             echo "🔄 Reloading Nginx..."
-            sudo systemctl reload nginx
+            systemctl reload nginx
             
             # Cleanup old backups (keep last 5)
             echo "🧹 Cleaning old backups..."
-            cd backups && ls -t | tail -n +6 | xargs rm -rf
+            cd /var/backups/admin 2>/dev/null && ls -t | tail -n +6 | xargs rm -rf 2>/dev/null || true
             
             echo "✅ Deployment completed successfully!"
-            echo "🌐 Site: https://buiquoctuan.id.vn"
+            echo "🌐 Site: https://admin.buiquoctuan.id.vn"
             echo "⏰ Time: $(date)"
       
       # Telegram notifications (optional - uncomment and add secrets if needed)
