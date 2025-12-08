@@ -6,6 +6,7 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
     content: '',
     imageUrl: ''
   });
+  const [isApproving, setIsApproving] = useState(false);
 
   useEffect(() => {
     if (post) {
@@ -25,7 +26,14 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
   };
 
   const handleApprove = async () => {
+    if (isApproving) {
+      console.warn('⚠️ Already approving, please wait...');
+      return;
+    }
+    
     if (!window.confirm('Xác nhận duyệt và đăng bài này lên Facebook?')) return;
+    
+    setIsApproving(true);
     
     // Tạo postData object hoàn chỉnh với dữ liệu đã chỉnh sửa
     const postData = {
@@ -47,6 +55,8 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
       if (window.confirm('Tiếp tục duyệt bài thủ công?')) {
         onApprove(postData);
       }
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -177,9 +187,25 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
               </div>
             </div>
             <div className="modal-footer bg-light">
-              <button type="button" className="btn btn-light text-secondary" onClick={onClose}>Hủy</button>
-              <button type="button" className="btn btn-success px-4 fw-bold" onClick={handleApprove}>
-                <i className="bi bi-send"></i> DUYỆT & ĐĂNG NGAY
+              <button type="button" className="btn btn-light text-secondary" onClick={onClose} disabled={isApproving}>
+                Hủy
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-success px-4 fw-bold" 
+                onClick={handleApprove}
+                disabled={isApproving}
+              >
+                {isApproving ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-send"></i> DUYỆT & ĐĂNG NGAY
+                  </>
+                )}
               </button>
             </div>
           </div>
