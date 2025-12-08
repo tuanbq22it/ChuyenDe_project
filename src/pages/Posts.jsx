@@ -158,7 +158,8 @@ const Posts = () => {
       if (postToDelete?.facebookPostId) {
         try {
           console.log('🗑️ Calling n8n to delete from Facebook:', postToDelete.facebookPostId);
-          const n8nResponse = await fetch(import.meta.env.VITE_N8N_DELETE_WEBHOOK_URL || 'https://buiquoctuan.id.vn/webhook/delete-post', {
+          // Force HTTPS - không dùng env variable để tránh cache HTTP cũ
+          const n8nResponse = await fetch('https://buiquoctuan.id.vn/webhook/delete-post', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
