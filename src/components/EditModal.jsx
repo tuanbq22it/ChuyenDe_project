@@ -42,17 +42,25 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
     };
     
     try {
-      // Nếu là bài viết tự tạo, trigger n8n workflow
-      if (post.source === 'MANUAL' || !post.source) {
-        await triggerN8NPublish(post._id, postData);
-      }
+      // Trigger n8n workflow - n8n sẽ tự động đăng lên Facebook và gọi approve API
+      await triggerN8NPublish(post._id, postData);
       
-      // Gọi hàm approve trong component cha
-      onApprove(postData);
+      // N8n workflow sẽ xử lý việc approve trong database
+      // Không cần gọi onApprove ở đây để tránh đăng 2 lần
+      
+      // Đóng modal và refresh danh sách
+      onClose();
+      
+      // Sau 2 giây reload để lấy dữ liệu mới từ API
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      
     } catch (error) {
       console.error('Error triggering n8n:', error);
       alert('⚠️ Có lỗi khi kết nối với hệ thống tự động đăng. Bạn có muốn duyệt bài thủ công không?');
       if (window.confirm('Tiếp tục duyệt bài thủ công?')) {
+        // Nếu n8n lỗi, gọi approve API trực tiếp
         onApprove(postData);
       }
     } finally {
