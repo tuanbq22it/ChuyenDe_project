@@ -67,12 +67,12 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
     console.log('🚀 Triggering n8n workflow:', N8N_WEBHOOK_URL);
     console.log('📦 Payload:', payload);
     
-    // Trong demo mode, chỉ log và return success
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      console.log('🔄 [DEMO MODE] n8n webhook would be triggered');
-      alert('🔄 [Demo Mode] n8n webhook sẽ được gọi với URL: ' + N8N_WEBHOOK_URL);
-      return true;
-    }
+    // Tạm thời tắt demo mode để test webhook thật
+    // if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    //   console.log('🔄 [DEMO MODE] n8n webhook would be triggered');
+    //   alert('🔄 [Demo Mode] n8n webhook sẽ được gọi với URL: ' + N8N_WEBHOOK_URL);
+    //   return true;
+    // }
     
     try {
       const response = await fetch(N8N_WEBHOOK_URL, {

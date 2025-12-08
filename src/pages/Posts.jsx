@@ -137,44 +137,58 @@ const Posts = () => {
     
     try {
       // 1. Xóa trên database
-      const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
-      
-      if (res.ok) {
-        // 2. Nếu có facebookPostId, gọi n8n để xóa trên Facebook
-        if (postToDelete?.facebookPostId) {
-          try {
-            const n8nResponse = await fetch(import.meta.env.VITE_N8N_DELETE_WEBHOOK_URL || 'http://buiquoctuan.id.vn:5678/webhook/delete-post', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                postId: postToDelete.facebookPostId,
-                title: postToDelete.title,
-                deletedBy: user?.email || 'admin'
-              })
-            });
-            
-            const n8nResult = await n8nResponse.json();
-            
-            if (n8nResult.success) {
-              console.log('✅ Đã xóa trên Facebook:', n8nResult);
-              notifySuccess(`Đã xóa bài viết "${postToDelete.title}" khỏi Facebook`);
-            } else {
-              console.warn('⚠️ Không thể xóa trên Facebook:', n8nResult);
-              notifyError(`Đã xóa khỏi hệ thống nhưng chưa xóa được trên Facebook`);
-            }
-          } catch (n8nError) {
-            console.error('❌ Lỗi khi gọi n8n:', n8nError);
-            notifyError(`Đã xóa khỏi hệ thống nhưng không kết nối được n8n`);
-          }
-        } else {
-          notifySuccess(`Đã xóa bài viết "${postToDelete.title}"`);
+      console.log('🗑️ Deleting post:', { id, url: `${API_BASE}/${id}` });
+      const res = await fetch(`${API_BASE}/${id}`, { 
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
-        
-        // 3. Xóa khỏi state
-        setPosts(posts.filter(p => p._id !== id));
-      } else {
-        throw new Error('API không khả dụng');
+      });
+      
+      console.log('📡 Delete response status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ Delete API error:', errorText);
+        throw new Error(`Delete failed: ${res.status} - ${errorText}`);
       }
+
+      // 2. Nếu có facebookPostId, gọi n8n để xóa trên Facebook
+      if (postToDelete?.facebookPostId) {
+        try {
+          console.log('🗑️ Calling n8n to delete from Facebook:', postToDelete.facebookPostId);
+          const n8nResponse = await fetch(import.meta.env.VITE_N8N_DELETE_WEBHOOK_URL || 'http://buiquoctuan.id.vn:5678/webhook/delete-post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              postId: postToDelete.facebookPostId,
+              title: postToDelete.title,
+              deletedBy: user?.email || 'admin'
+            })
+          });
+          
+          console.log('📡 N8N delete response status:', n8nResponse.status);
+          const n8nResult = await n8nResponse.json();
+          
+          if (n8nResult.success) {
+            console.log('✅ Đã xóa trên Facebook:', n8nResult);
+            notifySuccess(`Đã xóa bài viết "${postToDelete.title}" khỏi Facebook`);
+          } else {
+            console.warn('⚠️ Không thể xóa trên Facebook:', n8nResult);
+            notifyError(`Đã xóa khỏi hệ thống nhưng chưa xóa được trên Facebook`);
+          }
+        } catch (n8nError) {
+          console.error('❌ Lỗi khi gọi n8n:', n8nError);
+          notifyError(`Đã xóa khỏi hệ thống nhưng không kết nối được n8n`);
+        }
+      } else {
+        notifySuccess(`Đã xóa bài viết "${postToDelete.title}"`);
+      }
+      
+      // 3. Xóa khỏi state
+      console.log('✅ Removing post from state');
+      setPosts(posts.filter(p => p._id !== id));
     } catch (error) {
       console.log('🔄 Xóa bài offline mode');
       setPosts(posts.filter(p => p._id !== id));
