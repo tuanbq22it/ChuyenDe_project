@@ -186,7 +186,12 @@ const Posts = () => {
           }
         } catch (n8nError) {
           console.error('❌ Lỗi khi gọi n8n:', n8nError);
-          notifySuccess(`Đã xóa "${postToDelete.title}" khỏi hệ thống (n8n webhook chưa sẵn sàng - cần xóa thủ công trên Facebook)`);
+          console.error('Error details:', {
+            name: n8nError.name,
+            message: n8nError.message,
+            stack: n8nError.stack
+          });
+          notifySuccess(`Đã xóa "${postToDelete.title}" khỏi hệ thống. ⚠️ Không xóa được trên Facebook (${n8nError.message || 'Network error'})`);
         }
       } else {
         notifySuccess(`Đã xóa bài viết "${postToDelete.title}"`);
