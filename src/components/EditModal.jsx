@@ -76,16 +76,28 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
     // }
     
     try {
+      console.log('🌐 Making fetch request to:', N8N_WEBHOOK_URL);
+      
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      console.log('📡 Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
       });
       
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ N8N returned error:', errorText);
         throw new Error(`N8N webhook failed: ${response.status} - ${errorText}`);
       }
       
@@ -98,6 +110,8 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
       return true;
     } catch (error) {
       console.error('❌ Failed to trigger N8N workflow:', error);
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
       throw error;
     }
   };
