@@ -169,14 +169,20 @@ const Posts = () => {
           });
           
           console.log('📡 N8N delete response status:', n8nResponse.status);
-          const n8nResult = await n8nResponse.json();
           
-          if (n8nResult.success) {
-            console.log('✅ Đã xóa trên Facebook:', n8nResult);
-            notifySuccess(`Đã xóa bài viết "${postToDelete.title}" (cả trên Facebook)`);
+          if (n8nResponse.ok) {
+            const n8nResult = await n8nResponse.json();
+            
+            if (n8nResult.success) {
+              console.log('✅ Đã xóa trên Facebook:', n8nResult);
+              notifySuccess(`Đã xóa bài viết "${postToDelete.title}" (cả trên Facebook)`);
+            } else {
+              console.warn('⚠️ Facebook delete failed:', n8nResult);
+              notifySuccess(`Đã xóa "${postToDelete.title}" khỏi hệ thống. ${n8nResult.message || 'Không xóa được trên Facebook'}`);
+            }
           } else {
-            console.warn('⚠️ Không thể xóa trên Facebook:', n8nResult);
-            notifySuccess(`Đã xóa "${postToDelete.title}" khỏi hệ thống (chưa xóa trên Facebook - vui lòng xóa thủ công)`);
+            console.error('❌ N8N webhook error:', n8nResponse.status);
+            notifySuccess(`Đã xóa "${postToDelete.title}" khỏi hệ thống (n8n error ${n8nResponse.status})`);
           }
         } catch (n8nError) {
           console.error('❌ Lỗi khi gọi n8n:', n8nError);
