@@ -52,7 +52,7 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
 
   // Hàm trigger n8n webhook
   const triggerN8NPublish = async (postId, postData) => {
-    const N8N_WEBHOOK_URL = 'http://buiquoctuan.id.vn:5678/webhook/publish-post';
+    const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || 'https://buiquoctuan.id.vn/webhook/publish-post';
     
     // Payload khớp với workflow hiện có
     const payload = {
