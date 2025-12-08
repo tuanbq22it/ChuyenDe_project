@@ -168,7 +168,7 @@ const Dashboard = () => {
           <div className="d-flex align-items-center">
             <i className="bi bi-facebook me-2"></i>
             <div className="flex-grow-1">
-              <small className="fw-bold">📊 Dashboard Facebook Analytics - CI/CD Test v2</small>
+              <small className="fw-bold">📊 Dashboard Facebook Analytics</small>
               <div className="small">
                 Trang: {pageInfo?.name || 'TT News'} • Followers: {stats.followers} • Tổng tương tác: {stats.engagement}
               </div>
