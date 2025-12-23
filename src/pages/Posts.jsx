@@ -5,6 +5,7 @@ import PostCard from '../components/PostCard';
 import EditModal from '../components/EditModal';
 import CreatePostModal from '../components/CreatePostModal';
 import { notifyPost, notifySuccess, notifyError } from '../utils/notifications';
+import EmailService from '../services/EmailService';
 
 const Posts = () => {
   const { user } = useAuth();
@@ -177,6 +178,10 @@ const Posts = () => {
             if (n8nResult.success) {
               console.log('✅ Đã xóa trên Facebook:', n8nResult);
               notifySuccess(`Đã xóa bài viết "${postToDelete.title}" (cả trên Facebook)`);
+              
+              // Gửi email notification
+              EmailService.sendPostDeletedEmail(postToDelete)
+                .catch(err => console.error('Email notification failed:', err));
             } else {
               console.warn('⚠️ Facebook delete failed:', n8nResult);
               notifySuccess(`Đã xóa "${postToDelete.title}" khỏi hệ thống. ${n8nResult.message || 'Không xóa được trên Facebook'}`);
@@ -245,12 +250,23 @@ const Posts = () => {
         setCurrentFilter('PUBLISHED');
         
         notifyPost(postData.title);
+        
+        // Gửi email notification
+        console.log('📧 Attempting to send email notification...');
+        EmailService.sendPostPublishedEmail({
+          ...postData,
+          facebookPostId: result.post?.facebookPostId
+        })
+          .then(res => console.log('✅ Email sent successfully:', res))
+          .catch(err => console.error('❌ Email notification failed:', err));
       } else {
+        console.log('⚠️ API returned success=false, not sending email');
         throw new Error(result.message || 'Unknown API error');
       }
       
     } catch (error) {
       console.error('❌ Failed to approve via API:', error);
+      console.log('⚠️ Fallback mode - NOT sending email notification');
       
       // Fallback: Cập nhật local state
       const updatedPosts = posts.map(p => 

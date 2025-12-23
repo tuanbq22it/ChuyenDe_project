@@ -1,6 +1,7 @@
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import NotificationSystem from './NotificationSystem';
+import NotificationBell from './NotificationBell';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -53,6 +54,7 @@ const Navbar = () => {
               <i className="bi bi-globe me-1"></i> api.buiquoctuan.id.vn
             </span>
             
+            <NotificationBell />
             <NotificationSystem />
             
             <div className="dropdown">
@@ -72,6 +74,16 @@ const Navbar = () => {
                   <a className="dropdown-item" href="#">
                     <i className="bi bi-person-gear me-2"></i>Hồ sơ
                   </a>
+                </li>
+                <li>
+                  <Link className="dropdown-item" to="/notification-settings">
+                    <i className="bi bi-gear me-2"></i>Notification Settings
+                  </Link>
+                </li>
+                <li>
+                  <Link className="dropdown-item" to="/notification-test">
+                    <i className="bi bi-bug me-2"></i>Test Notifications
+                  </Link>
                 </li>
                 <li><hr className="dropdown-divider" /></li>
                 <li>

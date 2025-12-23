@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import EmailService from '../services/EmailService';
 
 const EditModal = ({ show, post, onClose, onApprove }) => {
   const [formData, setFormData] = useState({
@@ -121,6 +122,17 @@ const EditModal = ({ show, post, onClose, onApprove }) => {
       
       const result = await response.text();
       console.log('✅ N8N workflow triggered successfully:', result);
+      
+      // Gửi email notification
+      console.log('📧 Sending email notification...');
+      EmailService.sendPostPublishedEmail({
+        title: payload.title,
+        content: payload.content,
+        imageUrl: payload.imageUrl,
+        facebookPostId: null // Will be updated by n8n
+      })
+        .then(res => console.log('✅ Email sent successfully:', res))
+        .catch(err => console.error('❌ Email notification failed:', err));
       
       // Thông báo thành công
       alert('✅ Đã gửi yêu cầu đăng bài đến n8n thành công! Hệ thống sẽ tự động đăng lên Facebook.');

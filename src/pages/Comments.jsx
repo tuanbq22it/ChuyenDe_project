@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import EmailService from '../services/EmailService';
 
 const Comments = () => {
   const [comments, setComments] = useState([]);
@@ -10,6 +11,7 @@ const Comments = () => {
   const [replyText, setReplyText] = useState('');
   const [keywordModal, setKeywordModal] = useState({ show: false });
   const [newKeyword, setNewKeyword] = useState('');
+  const [notifiedComments, setNotifiedComments] = useState(new Set()); // Track đã gửi email
   const [sensitiveKeywords, setSensitiveKeywords] = useState([
     'spam', 'quảng cáo', 'bán hàng', 'mua ngay', 'giảm giá', 'khuyến mãi',
     'link', 'website', 'click', 'tải về', 'download', 'hack', 'crack',
@@ -78,7 +80,7 @@ const Comments = () => {
             commentIndex++;
             const keywordCheck = detectSensitiveKeywords(comment.message);
             
-            allComments.push({
+            const newComment = {
               id: comment.id,
               author: comment.from?.name || 'Người dùng Facebook',
               avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.from?.name || 'FB User')}&background=1877f2&color=fff`,
@@ -93,7 +95,28 @@ const Comments = () => {
               originalPost: post.message,
               sensitiveKeywords: keywordCheck.detectedKeywords,
               riskLevel: keywordCheck.detectedKeywords.length > 2 ? 'high' : keywordCheck.detectedKeywords.length > 0 ? 'medium' : 'low'
-            });
+            };
+            
+            allComments.push(newComment);
+            
+            // Gửi email nếu phát hiện bình luận vi phạm (chỉ gửi 1 lần)
+            if (keywordCheck.hasSensitive && keywordCheck.detectedKeywords.length > 0) {
+              if (!notifiedComments.has(newComment.id)) {
+                console.log('⚠️ Phát hiện comment vi phạm, gửi email...');
+                EmailService.sendSpamCommentAlert({
+                  message: newComment.content,
+                  author: newComment.author,
+                  postTitle: newComment.postTitle
+                })
+                  .then(res => {
+                    console.log('✅ Email cảnh báo đã gửi:', res);
+                    setNotifiedComments(prev => new Set(prev).add(newComment.id));
+                  })
+                  .catch(err => console.error('❌ Gửi email thất bại:', err));
+              } else {
+                console.log('ℹ️ Comment này đã gửi email rồi, bỏ qua:', newComment.id);
+              }
+            }
           });
         }
       });

@@ -95,13 +95,4 @@ jobs:
             echo "📁 Deployed to: /var/www/html/AdminPanel/dist"
             echo "⏰ Time: $(date)"
       
-      # Telegram notifications (optional - uncomment and add secrets if needed)
-      # - name: 📱 Send success notification
-      #   if: success()
-      #   uses: appleboy/telegram-action@master
-      #   with:
-      #     to: ${{ secrets.TELEGRAM_CHAT_ID }}
-      #     token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      #     format: markdown
-      #     message: |
-      #       ✅ Deployment Success! 🌐 https://admin.buiquoctuan.id.vn
+     
