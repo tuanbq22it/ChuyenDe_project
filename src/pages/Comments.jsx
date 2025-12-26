@@ -26,16 +26,16 @@ const Comments = () => {
   // Hàm phát hiện từ khóa nhạy cảm
   const detectSensitiveKeywords = (text) => {
     if (!text) return { hasSensitive: false, detectedKeywords: [] };
-    
+
     const normalizedText = text.toLowerCase().trim();
     const detectedKeywords = [];
-    
+
     sensitiveKeywords.forEach(keyword => {
       if (normalizedText.includes(keyword.toLowerCase())) {
         detectedKeywords.push(keyword);
       }
     });
-    
+
     return {
       hasSensitive: detectedKeywords.length > 0,
       detectedKeywords
@@ -45,155 +45,59 @@ const Comments = () => {
   const fetchComments = async () => {
     setLoading(true);
     try {
-      // Fetch real comments from Facebook API
-      const pageId = import.meta.env.VITE_FACEBOOK_PAGE_ID || '732045003335546';
-      const token = import.meta.env.VITE_FACEBOOK_PAGE_ACCESS_TOKEN || 'EAAfPYE7egL8BQMLijv4aipXXaImbD0gCo8ozQ7XPpI9VIBw87lkZBEakkB5xPxc8LokpqnCW1C2W6q2FLZAU9aZA7pQOB5vWezBZCAEMULiSbm5rGzaBszrvnyFpU5Rw8LUhP712NR50KZC9ILZCySPxZBFtI5dtZC2NzpqfxIoaXO0mAZB60JiMLBRiFoSKcNkCo8WVU';
-      
-      console.log('🔗 Đang tải bình luận từ Facebook...');
+      console.log('🔗 Đang tải bình luận từ Database Server...');
 
-      if (!token) {
-        throw new Error('Facebook Access Token không tìm thấy');
+      const API_BASE = 'https://api.buiquoctuan.id.vn/api';
+      const response = await fetch(`${API_BASE}/comments`);
+
+      if (!response.ok) {
+        throw new Error('Không thể kết nối đến Server');
       }
 
-      // Fetch posts first to get their comments
-      const postsResponse = await fetch(
-        `https://graph.facebook.com/v18.0/${pageId}/posts?fields=id,message,created_time,comments{id,message,from,created_time,like_count}&limit=10&access_token=${token}`
-      );
-      
-      const postsData = await postsResponse.json();
-      
-      if (postsData.error) {
-        throw new Error(`API Error: ${postsData.error.message}`);
+      const data = await response.json();
+      console.log('✅ Dữ liệu từ Server:', data);
+
+      if (!Array.isArray(data)) {
+        throw new Error('Dữ liệu trả về không đúng định dạng');
       }
 
-      console.log('✅ Dữ liệu bài viết và bình luận:', postsData);
+      const mappedComments = data.map(item => {
+        // Kiểm tra từ khóa nhạy cảm lại một lần nữa (cho chắc)
+        const keywordCheck = detectSensitiveKeywords(item.content || '');
 
-      // Process comments from all posts
-      const allComments = [];
-      let commentIndex = 0;
+        return {
+          id: item._id, // QUAN TRỌNG: Sử dụng _id của Mongo làm ID chính để xóa cho dễ
+          fbCommentId: item.fbCommentId, // Lưu ID FB để tham khảo
+          author: item.author || 'Người dùng Facebook',
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(item.author || 'User')}&background=1877f2&color=fff`,
+          content: item.content || '',
+          postTitle: item.fbPostId ? `Post ID: ${item.fbPostId}` : 'Bài viết Facebook',
+          status: keywordCheck.hasSensitive ? 'flagged' : 'approved',
+          createdAt: item.createdAt || new Date().toISOString(),
+          platform: 'facebook',
+          likes: 0, // DB hiện tại chưa lưu số like
+          postId: item.postId,
+          sensitiveKeywords: keywordCheck.detectedKeywords,
+          riskLevel: keywordCheck.detectedKeywords.length > 2 ? 'high' : keywordCheck.detectedKeywords.length > 0 ? 'medium' : 'low',
 
-      postsData.data?.forEach(post => {
-        if (post.comments?.data) {
-          post.comments.data.forEach(comment => {
-            commentIndex++;
-            const keywordCheck = detectSensitiveKeywords(comment.message);
-            
-            allComments.push({
-              id: comment.id,
-              author: comment.from?.name || 'Người dùng Facebook',
-              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.from?.name || 'FB User')}&background=1877f2&color=fff`,
-              content: comment.message || 'Bình luận không có nội dung',
-              postTitle: post.message ? post.message.substring(0, 60) + '...' : 'Bài viết không có tiêu đề',
-              status: keywordCheck.hasSensitive ? 'flagged' : 'clean',
-              createdAt: comment.created_time,
-              platform: 'facebook',
-              likes: comment.like_count || 0,
-              replies: [],
-              postId: post.id,
-              originalPost: post.message,
-              sensitiveKeywords: keywordCheck.detectedKeywords,
-              riskLevel: keywordCheck.detectedKeywords.length > 2 ? 'high' : keywordCheck.detectedKeywords.length > 0 ? 'medium' : 'low'
-            });
-          });
-        }
+          // Map câu trả lời của AI vào danh sách replies
+          replies: item.aiReply ? [{
+            id: `reply_${item._id}`,
+            author: 'Trợ lý AI',
+            content: item.aiReply,
+            createdAt: item.repliedAt || item.createdAt
+          }] : []
+        };
       });
 
-      // Sort by creation time (newest first)
-      allComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // Sắp xếp mới nhất lên đầu
+      mappedComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-      console.log('📝 Tổng số bình luận:', allComments.length);
-
-      // If no real comments, show some mock data as fallback
-      const mockComments = allComments.length > 0 ? allComments : [
-        {
-          id: '1',
-          author: 'Nguyễn Văn An',
-          avatar: 'https://ui-avatars.com/api/?name=Nguyen+Van+An&background=007bff&color=fff',
-          content: 'Bài viết rất hay và bổ ích! Cảm ơn admin đã chia sẻ.',
-          postTitle: 'Ronaldo không có bàn thắng nào trong 4 trận gần nhất',
-          status: 'approved',
-          createdAt: new Date('2025-11-23T10:30:00').toISOString(),
-          platform: 'facebook',
-          likes: 12,
-          replies: []
-        },
-        {
-          id: '2', 
-          author: 'Trần Thị Bình',
-          avatar: 'https://ui-avatars.com/api/?name=Tran+Thi+Binh&background=28a745&color=fff',
-          content: 'Thông tin này có chính xác không? Tôi nghĩ cần kiểm tra lại nguồn.',
-          postTitle: 'Lý do nên thêm măng tây vào thực đơn hàng ngày',
-          status: 'pending',
-          createdAt: new Date('2025-11-23T09:15:00').toISOString(),
-          platform: 'facebook',
-          likes: 3,
-          replies: []
-        },
-        {
-          id: '3',
-          author: 'Phạm Minh Cường',
-          avatar: 'https://ui-avatars.com/api/?name=Pham+Minh+Cuong&background=dc3545&color=fff',
-          content: 'Spam content here... Buy cheap products now! Visit spamlink.com',
-          postTitle: 'Nhạc sĩ Nguyễn Văn Chung chia sẻ về âm nhạc',
-          status: 'spam',
-          createdAt: new Date('2025-11-23T08:45:00').toISOString(),
-          platform: 'facebook',
-          likes: 0,
-          replies: []
-        },
-        {
-          id: '4',
-          author: 'Lê Thị Dung',
-          avatar: 'https://ui-avatars.com/api/?name=Le+Thi+Dung&background=6f42c1&color=fff',
-          content: 'Rất cảm ơn thông tin này! Mình đã áp dụng và thấy hiệu quả rồi 👍',
-          postTitle: 'Vietjet vào top "Nơi làm việc tốt nhất châu Á"',
-          status: 'approved',
-          createdAt: new Date('2025-11-22T16:20:00').toISOString(),
-          platform: 'facebook',
-          likes: 8,
-          replies: [
-            {
-              id: 'r1',
-              author: 'Admin',
-              content: 'Cảm ơn bạn đã chia sẻ! Chúng tôi rất vui khi thông tin hữu ích với bạn.',
-              createdAt: new Date('2025-11-22T17:00:00').toISOString()
-            }
-          ]
-        },
-        {
-          id: '5',
-          author: 'Hoàng Văn Em',
-          avatar: 'https://ui-avatars.com/api/?name=Hoang+Van+Em&background=fd7e14&color=fff',
-          content: 'Nội dung không phù hợp và có chứa từ ngữ tiêu cực...',
-          postTitle: 'Bài viết chờ duyệt mẫu',
-          status: 'rejected',
-          createdAt: new Date('2025-11-22T14:10:00').toISOString(),
-          platform: 'facebook',
-          likes: 1,
-          replies: []
-        }
-      ];
-      setComments(mockComments);
+      setComments(mappedComments);
     } catch (error) {
       console.error('💥 Lỗi tải bình luận:', error);
-      
-      // Fallback to mock data if API fails
-      const fallbackComments = [
-        {
-          id: 'fb_fallback_1',
-          author: 'Nguyễn Văn An',
-          avatar: 'https://ui-avatars.com/api/?name=Nguyen+Van+An&background=1877f2&color=fff',
-          content: 'Bài viết rất hay và bổ ích! Cảm ơn admin đã chia sẻ.',
-          postTitle: 'Dữ liệu mẫu - Không thể kết nối Facebook API',
-          status: 'approved',
-          createdAt: new Date().toISOString(),
-          platform: 'facebook',
-          likes: 5,
-          replies: []
-        }
-      ];
-      setComments(fallbackComments);
-      console.error('Error fetching comments:', error);
+      setComments([]);
+      // Không cần fallback mock data nữa để người dùng biết là đang kết nối Server thật
     } finally {
       setLoading(false);
     }
@@ -201,8 +105,8 @@ const Comments = () => {
 
   const handleMarkSafe = (commentId) => {
     setComments(prev => prev.map(comment =>
-      comment.id === commentId ? { 
-        ...comment, 
+      comment.id === commentId ? {
+        ...comment,
         status: 'clean',
         riskLevel: 'low',
         sensitiveKeywords: []
@@ -216,12 +120,12 @@ const Comments = () => {
       alert('⚠️ Vui lòng nhập từ khóa!');
       return;
     }
-    
+
     if (sensitiveKeywords.includes(newKeyword.toLowerCase().trim())) {
       alert('⚠️ Từ khóa này đã tồn tại!');
       return;
     }
-    
+
     setSensitiveKeywords(prev => [...prev, newKeyword.toLowerCase().trim()]);
     setNewKeyword('');
     alert('✅ Đã thêm từ khóa mới!');
@@ -231,7 +135,7 @@ const Comments = () => {
     if (!confirm(`⚠️ Xóa từ khóa "${keyword}"?`)) return;
     setSensitiveKeywords(prev => prev.filter(k => k !== keyword));
     alert('✅ Đã xóa từ khóa!');
-    
+
     // Re-check all comments
     setComments(prev => prev.map(comment => {
       const newCheck = detectSensitiveKeywords(comment.content);
@@ -239,17 +143,40 @@ const Comments = () => {
         ...comment,
         status: newCheck.hasSensitive ? 'flagged' : 'clean',
         sensitiveKeywords: newCheck.detectedKeywords,
-        riskLevel: newCheck.detectedKeywords.length > 2 ? 'high' : 
-                   newCheck.detectedKeywords.length > 0 ? 'medium' : 'low'
+        riskLevel: newCheck.detectedKeywords.length > 2 ? 'high' :
+          newCheck.detectedKeywords.length > 0 ? 'medium' : 'low'
       };
     }));
   };
 
-  const handleDelete = (commentId) => {
+  const handleDelete = async (commentId) => {
     if (!confirm('⚠️ Bạn có chắc chắn muốn xóa vĩnh viễn bình luận này?')) return;
+
+    // Optimistic update (Xóa trên UI trước cho nhanh)
+    const previousComments = [...comments];
     setComments(prev => prev.filter(comment => comment.id !== commentId));
     setSelectedComments(prev => prev.filter(id => id !== commentId));
-    alert('✅ Đã xóa bình luận!');
+
+    try {
+      // Gọi API xóa (Backend sẽ gọi tiếp N8N để xóa trên FB)
+      const API_BASE = 'https://api.buiquoctuan.id.vn/api';
+      const response = await fetch(`${API_BASE}/comments/${commentId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Lỗi API');
+      }
+
+      alert('✅ Đã xóa bình luận thành công (trên cả Facebook va Database)!');
+    } catch (error) {
+      console.error('❌ Lỗi xóa bình luận:', error);
+      // Rollback nếu lỗi
+      setComments(previousComments);
+      alert(`❌ Lỗi: ${error.message}`);
+    }
   };
 
   const handleReply = () => {
@@ -357,9 +284,9 @@ const Comments = () => {
   };
 
   return (
-    <div className="min-vh-100" style={{backgroundColor: '#f8f9fa'}}>
+    <div className="min-vh-100" style={{ backgroundColor: '#f8f9fa' }}>
       <Navbar />
-      
+
       <div className="container-fluid px-3 px-md-4 py-4">
         {/* Facebook Comments Stats */}
         <div className="alert alert-primary border-0 shadow-sm mb-4" role="alert">
@@ -368,13 +295,13 @@ const Comments = () => {
             <div className="flex-grow-1">
               <small className="fw-bold">🛡️ Bộ lọc từ khóa nhạy cảm Facebook</small>
               <div className="small text-muted">
-                Tổng số: <strong>{comments.length}</strong> • 
-                An toàn: <strong>{comments.filter(c => c.status === 'clean').length}</strong> • 
-                Cảnh báo: <strong>{comments.filter(c => c.status === 'flagged').length}</strong> • 
+                Tổng số: <strong>{comments.length}</strong> •
+                An toàn: <strong>{comments.filter(c => c.status === 'clean').length}</strong> •
+                Cảnh báo: <strong>{comments.filter(c => c.status === 'flagged').length}</strong> •
                 Từ khóa: <strong>{sensitiveKeywords.length}</strong>
               </div>
             </div>
-            <button 
+            <button
               className="btn btn-outline-primary btn-sm"
               onClick={fetchComments}
               disabled={loading}
@@ -404,7 +331,7 @@ const Comments = () => {
                 <p className="text-muted mb-0">Phát hiện và lọc bình luận có nội dung nhạy cảm trên Facebook</p>
               </div>
               <div className="d-flex gap-2 flex-wrap">
-                <button 
+                <button
                   className="btn btn-outline-primary btn-sm"
                   onClick={() => setKeywordModal({ show: true })}
                 >
@@ -413,21 +340,21 @@ const Comments = () => {
                 </button>
                 {selectedComments.length > 0 && (
                   <>
-                    <button 
+                    <button
                       className="btn btn-warning btn-sm"
                       onClick={() => handleBulkAction('clean')}
                     >
                       <i className="bi bi-check-circle me-1"></i>
                       Đánh dấu an toàn ({selectedComments.length})
                     </button>
-                    <button 
+                    <button
                       className="btn btn-danger btn-sm"
                       onClick={() => handleBulkAction('reject')}
                     >
                       <i className="bi bi-x-circle me-1"></i>
                       Từ chối
                     </button>
-                    <button 
+                    <button
                       className="btn btn-dark btn-sm"
                       onClick={() => handleBulkAction('spam')}
                     >
@@ -436,7 +363,7 @@ const Comments = () => {
                     </button>
                   </>
                 )}
-                <button 
+                <button
                   className="btn btn-outline-secondary"
                   onClick={fetchComments}
                   disabled={loading}
@@ -565,8 +492,8 @@ const Comments = () => {
                   {filteredComments.map((comment) => {
                     const status = getStatusBadge(comment.status);
                     return (
-                      <div 
-                        key={comment.id} 
+                      <div
+                        key={comment.id}
                         className={`list-group-item ${selectedComments.includes(comment.id) ? 'bg-light' : ''}`}
                       >
                         <div className="d-flex align-items-start">
@@ -578,14 +505,14 @@ const Comments = () => {
                               onChange={() => toggleSelectComment(comment.id)}
                             />
                           </div>
-                          
+
                           <img
                             src={comment.avatar}
                             className="rounded-circle me-3"
                             style={{ width: '48px', height: '48px' }}
                             alt={comment.author}
                           />
-                          
+
                           <div className="flex-grow-1">
                             <div className="d-flex align-items-center justify-content-between mb-2">
                               <div>
@@ -600,9 +527,9 @@ const Comments = () => {
                                 {status.text}
                               </span>
                             </div>
-                            
+
                             <p className="mb-2">{comment.content}</p>
-                            
+
                             <div className="small text-muted mb-3">
                               <i className="bi bi-file-earmark-text me-1"></i>
                               Bài viết: <span className="fw-semibold">{comment.postTitle}</span>
@@ -629,7 +556,7 @@ const Comments = () => {
                               <div className={`alert ${comment.riskLevel === 'high' ? 'alert-danger' : 'alert-warning'} py-2 mb-2`}>
                                 <small>
                                   <i className="bi bi-exclamation-triangle me-1"></i>
-                                  <strong>Phát hiện từ khóa nhạy cảm:</strong> 
+                                  <strong>Phát hiện từ khóa nhạy cảm:</strong>
                                   {comment.sensitiveKeywords.map((keyword, idx) => (
                                     <span key={idx} className={`badge ${comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'} ms-1`}>
                                       {keyword}
@@ -649,15 +576,14 @@ const Comments = () => {
                                   <i className="bi bi-chat me-1"></i>
                                   {comment.replies.length} phản hồi
                                 </small>
-                                <span className={`badge ${
-                                  comment.status === 'clean' ? 'bg-success' : 
+                                <span className={`badge ${comment.status === 'clean' ? 'bg-success' :
                                   comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'
-                                }`}>
-                                  {comment.status === 'clean' ? '✅ An toàn' : 
-                                   comment.riskLevel === 'high' ? '🚨 Nguy cơ cao' : '⚠️ Cảnh báo'}
+                                  }`}>
+                                  {comment.status === 'clean' ? '✅ An toàn' :
+                                    comment.riskLevel === 'high' ? '🚨 Nguy cơ cao' : '⚠️ Cảnh báo'}
                                 </span>
                               </div>
-                              
+
                               <div className="btn-group btn-group-sm" role="group">
                                 {comment.status === 'flagged' && (
                                   <>
@@ -722,9 +648,9 @@ const Comments = () => {
                       <i className="bi bi-reply text-primary me-2"></i>
                       Phản hồi bình luận
                     </h5>
-                    <button 
-                      type="button" 
-                      className="btn-close" 
+                    <button
+                      type="button"
+                      className="btn-close"
                       onClick={() => setReplyModal({ show: false, comment: null })}
                     ></button>
                   </div>
@@ -741,7 +667,7 @@ const Comments = () => {
                       </div>
                       <p className="mb-0 small">{replyModal.comment?.content}</p>
                     </div>
-                    
+
                     <div className="mb-3">
                       <label className="form-label fw-bold">Nội dung phản hồi:</label>
                       <textarea
@@ -754,15 +680,15 @@ const Comments = () => {
                     </div>
                   </div>
                   <div className="modal-footer">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="btn btn-light"
                       onClick={() => setReplyModal({ show: false, comment: null })}
                     >
                       Hủy
                     </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="btn btn-primary"
                       onClick={handleReply}
                     >
@@ -788,9 +714,9 @@ const Comments = () => {
                       <i className="bi bi-gear text-primary me-2"></i>
                       Quản lý từ khóa nhạy cảm
                     </h5>
-                    <button 
-                      type="button" 
-                      className="btn-close" 
+                    <button
+                      type="button"
+                      className="btn-close"
                       onClick={() => setKeywordModal({ show: false })}
                     ></button>
                   </div>
@@ -807,7 +733,7 @@ const Comments = () => {
                           placeholder="Nhập từ khóa nhạy cảm..."
                           onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
                         />
-                        <button 
+                        <button
                           className="btn btn-primary"
                           onClick={handleAddKeyword}
                         >
@@ -846,8 +772,8 @@ const Comments = () => {
                     </div>
                   </div>
                   <div className="modal-footer">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="btn btn-light"
                       onClick={() => setKeywordModal({ show: false })}
                     >
