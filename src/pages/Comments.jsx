@@ -11,7 +11,19 @@ const Comments = () => {
   const [replyText, setReplyText] = useState('');
   const [keywordModal, setKeywordModal] = useState({ show: false });
   const [newKeyword, setNewKeyword] = useState('');
-  const [notifiedComments, setNotifiedComments] = useState(new Set()); // Track đã gửi email
+  const [notifiedComments, setNotifiedComments] = useState(() => {
+    try {
+      const saved = localStorage.getItem('notifiedComments');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Lưu notifiedComments vào localStorage khi thay đổi
+  useEffect(() => {
+    localStorage.setItem('notifiedComments', JSON.stringify([...notifiedComments]));
+  }, [notifiedComments]);
   const [sensitiveKeywords, setSensitiveKeywords] = useState([
     'spam', 'quảng cáo', 'bán hàng', 'mua ngay', 'giảm giá', 'khuyến mãi',
     // 'link', 'website', 'click', // Tạm comment vì quá chung chung
