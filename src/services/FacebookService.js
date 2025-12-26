@@ -1,10 +1,10 @@
 class FacebookService {
   constructor() {
-    // Sử dụng token từ .env file
-    this.accessToken = process.env.REACT_APP_FACEBOOK_PAGE_ACCESS_TOKEN || 'EAAG3zhLcvjABO9AWgnqpFCZAnqTv5vCyDB8JjWHD7TjZAoELDlQwOLT5vZBGyrJjjulGS1yzgppriPEZApojSam0SYOfMIdMlCYmfYAZCXO7L5rOlE1xDlCrRRyYJ3Zp1wJmGfX6IZCLZByGgFNkiZCT0oQ2cfRzlVQ6NYaEf7vZCnnEmBKZA0wwZCJgGGSSle3nfZBgkZD';
-    this.pageId = process.env.REACT_APP_FACEBOOK_PAGE_ID || '732045003335546';
-    this.analyticsMode = process.env.REACT_APP_ANALYTICS_MODE || 'production';
-    
+    // Sử dụng token từ .env file (Hỗ trợ cả Vite và CRA)
+    this.accessToken = import.meta.env.VITE_FACEBOOK_PAGE_ACCESS_TOKEN || import.meta.env.REACT_APP_FACEBOOK_PAGE_ACCESS_TOKEN || 'EAAG3zhLcvjABO9AWgnqpFCZAnqTv5vCyDB8JjWHD7TjZAoELDlQwOLT5vZBGyrJjjulGS1yzgppriPEZApojSam0SYOfMIdMlCYmfYAZCXO7L5rOlE1xDlCrRRyYJ3Zp1wJmGfX6IZCLZByGgFNkiZCT0oQ2cfRzlVQ6NYaEf7vZCnnEmBKZA0wwZCJgGGSSle3nfZBgkZD';
+    this.pageId = import.meta.env.VITE_FACEBOOK_PAGE_ID || import.meta.env.REACT_APP_FACEBOOK_PAGE_ID || '732045003335546';
+    this.analyticsMode = import.meta.env.VITE_ANALYTICS_MODE || import.meta.env.REACT_APP_ANALYTICS_MODE || 'production';
+
     console.log('🔧 FacebookService initialized:', {
       pageId: this.pageId,
       hasToken: !!this.accessToken,
@@ -17,18 +17,18 @@ class FacebookService {
     try {
       // Vì insights API có vấn đề với metrics cũ, tạm thời tính từ posts data
       console.log('📊 Getting insights from posts data...');
-      
+
       const posts = await this.getTopPosts();
       let totalEngagement = 0;
       let totalReach = 0;
-      
+
       posts.forEach(post => {
         totalEngagement += post.engagement;
         totalReach += post.likes + post.comments + post.shares; // Estimate reach
       });
-      
+
       const pageInfo = await this.getPageInfo();
-      
+
       return {
         impressions: totalReach * 3, // Estimate impressions
         reach: totalReach,
@@ -41,7 +41,7 @@ class FacebookService {
     } catch (error) {
       console.error('💥 Facebook Analytics Error:', error.message);
       console.warn('🔄 Using fallback data instead of real Facebook data');
-      
+
       // Trả về dữ liệu mẫu nếu API lỗi
       return this.getFallbackData();
     }
@@ -50,30 +50,30 @@ class FacebookService {
   async getPageInfo() {
     try {
       const url = `https://graph.facebook.com/v18.0/${this.pageId}?fields=name,followers_count,likes&access_token=${this.accessToken}`;
-      
+
       console.log('🔗 Facebook Page Info Request:', {
         url: url.replace(this.accessToken, 'TOKEN_HIDDEN'),
         pageId: this.pageId
       });
 
       const response = await fetch(url);
-      
+
       console.log('📡 Page Info Response Status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Page Info Error:', errorText);
         throw new Error(`Page Info Error ${response.status}: ${errorText}`);
       }
-      
+
       const data = await response.json();
       console.log('✅ Page Info Success:', data);
-      
+
       if (data.error) {
         console.error('❌ Page Info API Error:', data.error);
         throw new Error(`Page Info Error: ${data.error.message}`);
       }
-      
+
       return data;
     } catch (error) {
       console.error('💥 Page Info Error:', error.message);
@@ -89,42 +89,42 @@ class FacebookService {
   async getTopPosts() {
     try {
       const url = `https://graph.facebook.com/v18.0/${this.pageId}/posts?fields=message,created_time,likes.summary(true),comments.summary(true),shares&limit=10&access_token=${this.accessToken}`;
-      
+
       console.log('🔗 Facebook Posts Request:', {
         url: url.replace(this.accessToken, 'TOKEN_HIDDEN'),
         pageId: this.pageId
       });
 
       const response = await fetch(url);
-      
+
       console.log('📡 Posts Response Status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Posts Error:', errorText);
         throw new Error(`Posts Error ${response.status}: ${errorText}`);
       }
-      
+
       const data = await response.json();
       console.log('✅ Posts Success:', data);
-      
+
       if (data.error) {
         console.error('❌ Posts API Error:', data.error);
         throw new Error(`Posts Error: ${data.error.message}`);
       }
-      
+
       if (!data.data || data.data.length === 0) {
         console.warn('⚠️ No posts data returned');
         throw new Error('No posts available');
       }
-      
+
       // Xử lý và sắp xếp posts theo engagement
       const processedPosts = data.data.map(post => {
         const likes = post.likes?.summary?.total_count || 0;
         const comments = post.comments?.summary?.total_count || 0;
         const shares = post.shares?.count || 0;
         const engagement = likes + comments + shares;
-        
+
         return {
           id: post.id,
           message: post.message || 'No message',
@@ -136,18 +136,18 @@ class FacebookService {
           created_time: post.created_time
         };
       });
-      
+
       console.log('📊 Processed Posts:', processedPosts);
-      
+
       // Sắp xếp theo engagement và lấy top 3
       const topPosts = processedPosts
         .sort((a, b) => b.engagement - a.engagement)
         .slice(0, 3);
-        
+
       console.log('🏆 Top Posts:', topPosts);
-      
+
       return topPosts;
-        
+
     } catch (error) {
       console.error('💥 Posts Error:', error.message);
       console.warn('🔄 Using fallback posts data');
@@ -197,8 +197,8 @@ class FacebookService {
 
   truncateMessage(message, maxLength = 50) {
     if (!message) return 'Bài viết không có tiêu đề';
-    return message.length > maxLength 
-      ? message.substring(0, maxLength) + '...' 
+    return message.length > maxLength
+      ? message.substring(0, maxLength) + '...'
       : message;
   }
 
@@ -224,25 +224,25 @@ class FacebookService {
     // Generate daily data từ posts
     const dailyData = [];
     const today = new Date();
-    
+
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
-      
+
       // Tính impressions estimate cho từng ngày
       const postsOnThisDay = posts.filter(post => {
         const postDate = new Date(post.created_time);
         return postDate.toDateString() === date.toDateString();
       });
-      
+
       let value = postsOnThisDay.reduce((sum, post) => sum + (post.engagement * 3), 0) || (100 + Math.random() * 200);
-      
+
       dailyData.push({
         date: date.toISOString(),
         value: Math.round(value)
       });
     }
-    
+
     return dailyData;
   }
 
@@ -284,6 +284,35 @@ class FacebookService {
       return (num / 1000).toFixed(1) + 'K';
     }
     return num.toString();
+  }
+  async getPostById(postId) {
+    try {
+      const url = `https://graph.facebook.com/v18.0/${postId}?fields=message,created_time&access_token=${this.accessToken}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to fetch post';
+        try {
+          const errorData = await response.json();
+          console.error('❌ Facebook API Error for Post:', postId, errorData);
+          errorMessage = errorData.error?.message || errorMessage;
+        } catch (e) {
+          console.error('❌ Failed to parse error response');
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      return {
+        id: data.id,
+        title: this.truncateMessage(data.message),
+        message: data.message,
+        createdAt: data.created_time
+      };
+    } catch (error) {
+      console.error('Error fetching post:', error.message);
+      return null;
+    }
   }
 }
 

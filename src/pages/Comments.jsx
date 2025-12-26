@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import EmailService from '../services/EmailService';
 
 const Comments = () => {
   const [comments, setComments] = useState([]);
@@ -10,9 +11,11 @@ const Comments = () => {
   const [replyText, setReplyText] = useState('');
   const [keywordModal, setKeywordModal] = useState({ show: false });
   const [newKeyword, setNewKeyword] = useState('');
+  const [notifiedComments, setNotifiedComments] = useState(new Set()); // Track đã gửi email
   const [sensitiveKeywords, setSensitiveKeywords] = useState([
     'spam', 'quảng cáo', 'bán hàng', 'mua ngay', 'giảm giá', 'khuyến mãi',
-    'link', 'website', 'click', 'tải về', 'download', 'hack', 'crack',
+    // 'link', 'website', 'click', // Tạm comment vì quá chung chung
+    'tải về', 'download', 'hack', 'crack',
     'fake', 'giả', 'lừa đảo', 'scam', 'virus', 'phishing',
     'sex', 'porn', 'xxx', 'địt', 'đụ', 'chịch', 'fuck', 'shit',
     'đĩ', 'cave', 'gái gọi', 'massage', 'happy ending',
@@ -31,10 +34,17 @@ const Comments = () => {
     const detectedKeywords = [];
 
     sensitiveKeywords.forEach(keyword => {
-      if (normalizedText.includes(keyword.toLowerCase())) {
+      // Match whole word để tránh false positive (vd: "hi" không match "hihi")
+      const regex = new RegExp(`\\b${keyword.toLowerCase()}\\b`, 'i');
+      if (regex.test(normalizedText)) {
         detectedKeywords.push(keyword);
       }
     });
+
+    // Debug log
+    if (detectedKeywords.length > 0) {
+      console.log('🚨 Detected spam:', { text, keywords: detectedKeywords });
+    }
 
     return {
       hasSensitive: detectedKeywords.length > 0,
@@ -48,39 +58,63 @@ const Comments = () => {
       console.log('🔗 Đang tải bình luận từ Database Server...');
 
       const API_BASE = 'https://api.buiquoctuan.id.vn/api';
+      
+      // 1. Fetch comments
       const response = await fetch(`${API_BASE}/comments`);
-
       if (!response.ok) {
         throw new Error('Không thể kết nối đến Server');
       }
-
       const data = await response.json();
-      console.log('✅ Dữ liệu từ Server:', data);
+
+      // 2. Fetch posts để lấy title
+      const postsResponse = await fetch(`${API_BASE}/posts`);
+      const posts = postsResponse.ok ? await postsResponse.json() : [];
+      
+      // Tạo map: postId (phần sau _ của facebookPostId) -> post
+      const postMap = {};
+      posts.forEach(post => {
+        if (post.facebookPostId) {
+          const postIdKey = post.facebookPostId.split('_').pop();
+          postMap[postIdKey] = post;
+        }
+      });
+
+      console.log('✅ Loaded:', data.length, 'comments,', posts.length, 'posts');
+      console.log('📋 PostMap keys (first 5):', Object.keys(postMap).slice(0, 5));
+      if (data.length > 0) {
+        console.log('📋 Sample comment.postId:', data[0].postId);
+        console.log('📋 Sample post.facebookPostId:', posts[0]?.facebookPostId);
+      }
 
       if (!Array.isArray(data)) {
         throw new Error('Dữ liệu trả về không đúng định dạng');
       }
 
       const mappedComments = data.map(item => {
-        // Kiểm tra từ khóa nhạy cảm lại một lần nữa (cho chắc)
+        // Kiểm tra từ khóa nhạy cảm
         const keywordCheck = detectSensitiveKeywords(item.content || '');
+        
+        // Join với posts để lấy title - SPLIT postId trước khi lookup
+        const commentPostIdKey = item.postId ? item.postId.split('_').pop() : null;
+        const matchedPost = commentPostIdKey ? postMap[commentPostIdKey] : null;
+        
+        // Nếu match được post thì dùng title, không thì dùng Post ID
+        const postTitle = matchedPost?.title || (commentPostIdKey ? `Post ID: ${commentPostIdKey}` : 'Bài viết Facebook');
 
         return {
-          id: item._id, // QUAN TRỌNG: Sử dụng _id của Mongo làm ID chính để xóa cho dễ
-          fbCommentId: item.fbCommentId, // Lưu ID FB để tham khảo
+          id: item._id,
+          fbCommentId: item.fbCommentId,
           author: item.author || 'Người dùng Facebook',
           avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(item.author || 'User')}&background=1877f2&color=fff`,
           content: item.content || '',
-          postTitle: item.fbPostId ? `Post ID: ${item.fbPostId}` : 'Bài viết Facebook',
+          postTitle: postTitle,
           status: keywordCheck.hasSensitive ? 'flagged' : 'approved',
           createdAt: item.createdAt || new Date().toISOString(),
           platform: 'facebook',
-          likes: 0, // DB hiện tại chưa lưu số like
+          likes: 0,
           postId: item.postId,
           sensitiveKeywords: keywordCheck.detectedKeywords,
           riskLevel: keywordCheck.detectedKeywords.length > 2 ? 'high' : keywordCheck.detectedKeywords.length > 0 ? 'medium' : 'low',
-
-          // Map câu trả lời của AI vào danh sách replies
           replies: item.aiReply ? [{
             id: `reply_${item._id}`,
             author: 'Trợ lý AI',
@@ -92,6 +126,36 @@ const Comments = () => {
 
       // Sắp xếp mới nhất lên đầu
       mappedComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      // Gửi email cảnh báo spam (chỉ gửi cho comments có từ khóa nhạy cảm)
+      const newSpamComments = mappedComments.filter(c => c.status === 'flagged' && !notifiedComments.has(c.id));
+      if (newSpamComments.length > 0) {
+        console.log('📧 Sending spam alerts for', newSpamComments.length, 'comments');
+        console.log('📋 Full spam comment objects:', newSpamComments);
+        
+        newSpamComments.forEach(c => {
+          console.log('📧 Comment object:', c);
+          console.log('📧 Extracted values:', {
+            content: c.content,
+            author: c.author,
+            postTitle: c.postTitle
+          });
+          
+          EmailService.sendSpamCommentAlert({
+            comment: c.content || 'No content',
+            user: c.author || 'Unknown User',
+            postTitle: c.postTitle || 'Bài viết Facebook'
+          })
+            .then(res => console.log('✅ Spam email sent:', res))
+            .catch(err => console.error('❌ Spam email failed:', err));
+        });
+
+        setNotifiedComments(prev => {
+          const next = new Set(prev);
+          newSpamComments.forEach(c => next.add(c.id));
+          return next;
+        });
+      }
 
       setComments(mappedComments);
     } catch (error) {
@@ -576,12 +640,18 @@ const Comments = () => {
                                   <i className="bi bi-chat me-1"></i>
                                   {comment.replies.length} phản hồi
                                 </small>
-                                <span className={`badge ${comment.status === 'clean' ? 'bg-success' :
-                                  comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'
+                                {comment.status === 'flagged' && (
+                                  <span className={`badge ${
+                                    comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'
                                   }`}>
-                                  {comment.status === 'clean' ? '✅ An toàn' :
-                                    comment.riskLevel === 'high' ? '🚨 Nguy cơ cao' : '⚠️ Cảnh báo'}
-                                </span>
+                                    {comment.riskLevel === 'high' ? '🚨 Nguy cơ cao' : '⚠️ Cảnh báo'}
+                                  </span>
+                                )}
+                                {comment.status === 'clean' && (
+                                  <span className="badge bg-success">
+                                    ✅ An toàn
+                                  </span>
+                                )}
                               </div>
 
                               <div className="btn-group btn-group-sm" role="group">
