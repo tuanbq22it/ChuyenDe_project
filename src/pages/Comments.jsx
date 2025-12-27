@@ -24,15 +24,26 @@ const Comments = () => {
   useEffect(() => {
     localStorage.setItem('notifiedComments', JSON.stringify([...notifiedComments]));
   }, [notifiedComments]);
-  const [sensitiveKeywords, setSensitiveKeywords] = useState([
-    'spam', 'quảng cáo', 'bán hàng', 'mua ngay', 'giảm giá', 'khuyến mãi',
-    // 'link', 'website', 'click', // Tạm comment vì quá chung chung
-    'tải về', 'download', 'hack', 'crack',
-    'fake', 'giả', 'lừa đảo', 'scam', 'virus', 'phishing',
-    'sex', 'porn', 'xxx', 'địt', 'đụ', 'chịch', 'fuck', 'shit',
-    'đĩ', 'cave', 'gái gọi', 'massage', 'happy ending',
-    'cờ bạc', 'casino', 'bet', 'cá cược', 'lô đề', 'xổ số'
-  ]);
+  const [sensitiveKeywords, setSensitiveKeywords] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sensitiveKeywords');
+      return saved ? JSON.parse(saved) : [
+        'spam', 'quảng cáo', 'bán hàng', 'mua ngay', 'giảm giá', 'khuyến mãi',
+        'tải về', 'download', 'hack', 'crack',
+        'fake', 'giả', 'lừa đảo', 'scam', 'virus', 'phishing',
+        'sex', 'porn', 'xxx', 'địt', 'đụ', 'chịch', 'fuck', 'shit',
+        'đĩ', 'cave', 'gái gọi', 'massage', 'happy ending',
+        'cờ bạc', 'casino', 'bet', 'cá cược', 'lô đề', 'xổ số'
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  // Lưu sensitiveKeywords vào localStorage
+  useEffect(() => {
+    localStorage.setItem('sensitiveKeywords', JSON.stringify(sensitiveKeywords));
+  }, [sensitiveKeywords]);
 
   useEffect(() => {
     fetchComments();
@@ -70,7 +81,7 @@ const Comments = () => {
       console.log('🔗 Đang tải bình luận từ Database Server...');
 
       const API_BASE = 'https://api.buiquoctuan.id.vn/api';
-      
+
       // 1. Fetch comments
       const response = await fetch(`${API_BASE}/comments`);
       if (!response.ok) {
@@ -81,7 +92,7 @@ const Comments = () => {
       // 2. Fetch posts để lấy title
       const postsResponse = await fetch(`${API_BASE}/posts`);
       const posts = postsResponse.ok ? await postsResponse.json() : [];
-      
+
       // Tạo map: postId (phần sau _ của facebookPostId) -> post
       const postMap = {};
       posts.forEach(post => {
@@ -105,11 +116,11 @@ const Comments = () => {
       const mappedComments = data.map(item => {
         // Kiểm tra từ khóa nhạy cảm
         const keywordCheck = detectSensitiveKeywords(item.content || '');
-        
+
         // Join với posts để lấy title - SPLIT postId trước khi lookup
         const commentPostIdKey = item.postId ? item.postId.split('_').pop() : null;
         const matchedPost = commentPostIdKey ? postMap[commentPostIdKey] : null;
-        
+
         // Nếu match được post thì dùng title, không thì dùng Post ID
         const postTitle = matchedPost?.title || (commentPostIdKey ? `Post ID: ${commentPostIdKey}` : 'Bài viết Facebook');
 
@@ -125,6 +136,7 @@ const Comments = () => {
           platform: 'facebook',
           likes: 0,
           postId: item.postId,
+          fbPostId: item.fbPostId, // Thêm trường này để gửi kèm khi reply
           sensitiveKeywords: keywordCheck.detectedKeywords,
           riskLevel: keywordCheck.detectedKeywords.length > 2 ? 'high' : keywordCheck.detectedKeywords.length > 0 ? 'medium' : 'low',
           replies: item.aiReply ? [{
@@ -132,19 +144,38 @@ const Comments = () => {
             author: 'Trợ lý AI',
             content: item.aiReply,
             createdAt: item.repliedAt || item.createdAt
-          }] : []
+          }] : [],
+          parentId: item.parentId // Lưu parentId để gom nhóm
         };
       });
 
-      // Sắp xếp mới nhất lên đầu
-      mappedComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // --- LOGIC GOM NHÓM COMMENT (Nested) ---
+      const commentMap = {};
+      mappedComments.forEach(c => commentMap[c.fbCommentId] = c);
+
+      const rootComments = [];
+      mappedComments.forEach(comment => {
+        if (comment.parentId && commentMap[comment.parentId]) {
+          // Nếu có cha -> Đẩy vào mảng replies của cha
+          const parent = commentMap[comment.parentId];
+          parent.replies.push(comment);
+          // Sắp xếp replies theo thời gian (cũ nhất -> mới nhất)
+          parent.replies.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        } else {
+          // Nếu không có cha (hoặc cha không tìm thấy) -> Là comment gốc
+          rootComments.push(comment);
+        }
+      });
+
+      // Sắp xếp comment gốc mới nhất lên đầu
+      rootComments.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       // Gửi email cảnh báo spam (chỉ gửi cho comments có từ khóa nhạy cảm)
       const newSpamComments = mappedComments.filter(c => c.status === 'flagged' && !notifiedComments.has(c.id));
       if (newSpamComments.length > 0) {
         console.log('📧 Sending spam alerts for', newSpamComments.length, 'comments');
         console.log('📋 Full spam comment objects:', newSpamComments);
-        
+
         newSpamComments.forEach(c => {
           console.log('📧 Comment object:', c);
           console.log('📧 Extracted values:', {
@@ -152,7 +183,7 @@ const Comments = () => {
             author: c.author,
             postTitle: c.postTitle
           });
-          
+
           EmailService.sendSpamCommentAlert({
             comment: c.content || 'No content',
             user: c.author || 'Unknown User',
@@ -169,7 +200,7 @@ const Comments = () => {
         });
       }
 
-      setComments(mappedComments);
+      setComments(rootComments);
     } catch (error) {
       console.error('💥 Lỗi tải bình luận:', error);
       setComments([]);
@@ -228,36 +259,99 @@ const Comments = () => {
   const handleDelete = async (commentId) => {
     if (!confirm('⚠️ Bạn có chắc chắn muốn xóa vĩnh viễn bình luận này?')) return;
 
+    // Tìm comment để lấy fbCommentId
+    const commentToDelete = comments.find(c => c.id === commentId);
+    if (!commentToDelete) {
+      console.error('❌ Error: Could not lookup comment details for ID:', commentId);
+      return;
+    }
+
+    console.log('🔍 Debug Delete:', {
+      internalId: commentId,
+      fbCommentId: commentToDelete.fbCommentId,
+      fullObject: commentToDelete
+    });
+
+    if (!commentToDelete.fbCommentId) {
+      alert('❌ Lỗi: Comment này không có fbCommentId trên hệ thống!');
+      return;
+    }
+
     // Optimistic update (Xóa trên UI trước cho nhanh)
     const previousComments = [...comments];
     setComments(prev => prev.filter(comment => comment.id !== commentId));
     setSelectedComments(prev => prev.filter(id => id !== commentId));
 
     try {
-      // Gọi API xóa (Backend sẽ gọi tiếp N8N để xóa trên FB)
+      console.log('🔗 Calling n8n webhook to delete comment:', commentToDelete.fbCommentId);
+
+      // Gọi n8n Webhook
+      const N8N_WEBHOOK = 'https://buiquoctuan.id.vn/webhook/delete-comment';
+      const response = await fetch(N8N_WEBHOOK, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fbCommentId: commentToDelete.fbCommentId,
+          deletedBy: 'admin' // Optional info
+        })
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        // Nếu không parse được JSON (vd lỗi server 502/504 trả về HTML)
+        if (!response.ok) {
+          throw new Error(`n8n Webhook Error: ${response.status}`);
+        }
+      }
+
+      console.log('✅ n8n Response:', data);
+
+      if (!response.ok || data.success === false) {
+        // Ưu tiên hiển thị lỗi chi tiết từ n8n trả về
+        const msg = data?.error || data?.message || `Lỗi server (${response.status})`;
+        throw new Error(msg);
+      }
+
+      console.log('✅ Đã xóa trên Facebook. Đang xóa trong Database...');
+
+      // 2. Sau khi xóa trên FB thành công, gọi API xóa trong DB
       const API_BASE = 'https://api.buiquoctuan.id.vn/api';
-      const response = await fetch(`${API_BASE}/comments/${commentId}`, {
+      const dbResponse = await fetch(`${API_BASE}/comments/${commentId}`, {
         method: 'DELETE'
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Lỗi API');
+      if (!dbResponse.ok) {
+        console.error('⚠️ Xóa DB thất bại:', dbResponse.status);
+        alert('✅ Đã xóa trên Facebook!\n⚠️ Nhưng không xóa được trong Database (Lỗi API).');
+      } else {
+        console.log('✅ Đã xóa trong Database!');
+        alert('✅ Đã xóa bình luận thành công!');
       }
 
-      alert('✅ Đã xóa bình luận thành công (trên cả Facebook va Database)!');
     } catch (error) {
       console.error('❌ Lỗi xóa bình luận:', error);
-      // Rollback nếu lỗi
+
+      // Rollback UI nếu lỗi
       setComments(previousComments);
-      alert(`❌ Lỗi: ${error.message}`);
+
+      // Hiển thị lỗi chi tiết cho user
+      alert(`❌ Không thể xóa bình luận:\n${error.message}`);
     }
   };
 
-  const handleReply = () => {
+  const handleReply = async () => {
     if (!replyText.trim()) {
       alert('⚠️ Vui lòng nhập nội dung phản hồi!');
+      return;
+    }
+
+    const currentComment = replyModal.comment;
+    if (!currentComment?.fbCommentId) {
+      alert('❌ Lỗi: Comment này không có fbCommentId để phản hồi!');
       return;
     }
 
@@ -268,15 +362,51 @@ const Comments = () => {
       createdAt: new Date().toISOString()
     };
 
+    // Optimistic: Cập nhật UI ngay
+    const previousComments = [...comments];
     setComments(prev => prev.map(comment =>
-      comment.id === replyModal.comment.id
-        ? { ...comment, replies: [...comment.replies, newReply] }
+      comment.id === currentComment.id
+        ? { ...comment, replies: [...(comment.replies || []), newReply] }
         : comment
     ));
 
     setReplyModal({ show: false, comment: null });
     setReplyText('');
-    alert('✅ Đã gửi phản hồi!');
+
+    try {
+      console.log('📤 Sending reply via n8n (Proxy):', {
+        fbCommentId: currentComment.fbCommentId,
+        message: newReply.content
+      });
+
+      // Gọi qua Proxy Server để tránh CORS
+      const API_BASE = 'https://api.buiquoctuan.id.vn/api';
+      const response = await fetch(`${API_BASE}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fbCommentId: currentComment.fbCommentId,
+          message: newReply.content,
+          postId: currentComment.postId,
+          fbPostId: currentComment.fbPostId
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || data.error || `Error ${response.status}`);
+      }
+
+      console.log('✅ Reply sent successfully!', data);
+      alert('✅ Đã gửi phản hồi thành công lên Facebook!');
+
+    } catch (error) {
+      console.error('❌ Reply failed:', error);
+      alert(`❌ Lỗi gửi phản hồi: ${error.message}`);
+      // Rollback
+      setComments(previousComments);
+    }
   };
 
   const handleBulkAction = (action) => {
@@ -653,9 +783,8 @@ const Comments = () => {
                                   {comment.replies.length} phản hồi
                                 </small>
                                 {comment.status === 'flagged' && (
-                                  <span className={`badge ${
-                                    comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'
-                                  }`}>
+                                  <span className={`badge ${comment.riskLevel === 'high' ? 'bg-danger' : 'bg-warning'
+                                    }`}>
                                     {comment.riskLevel === 'high' ? '🚨 Nguy cơ cao' : '⚠️ Cảnh báo'}
                                   </span>
                                 )}
